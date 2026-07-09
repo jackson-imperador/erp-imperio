@@ -1,0 +1,112 @@
+
+// ─────────────────────────────────────────────────────────────
+// NEW FINANCIAL & SALES ENTITIES (Fase 23C)
+// ─────────────────────────────────────────────────────────────
+
+model SaleDiscount {
+  id                String       @id @default(uuid())
+  companyId         String
+  saleId            String
+  type              DiscountType @default(PERCENTAGE)
+  scope             DiscountScope @default(SALE)
+  description       String?
+  percentage        Decimal?     @db.Decimal(5, 2)
+  amount            Decimal?     @db.Decimal(15, 2)
+  approvedBy        String?
+  approvalRequestId String?
+  createdAt         DateTime     @default(now())
+
+  company   Company   @relation(fields: [companyId], references: [id])
+  saleOrder SaleOrder @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
+  @@map("sale_discounts")
+}
+
+model SaleTax {
+  id                 String   @id @default(uuid())
+  companyId          String
+  saleId             String
+  taxConfigurationId String
+  taxType            String
+  baseAmount         Decimal  @db.Decimal(15, 2)
+  percentage         Decimal  @db.Decimal(5, 2)
+  amount             Decimal  @db.Decimal(15, 2)
+  createdAt          DateTime @default(now())
+
+  company          Company          @relation(fields: [companyId], references: [id])
+  saleOrder        SaleOrder        @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  taxConfiguration TaxConfiguration @relation(fields: [taxConfigurationId], references: [id])
+
+  @@map("sale_taxes")
+}
+
+model CostCenter {
+  id          String   @id @default(uuid())
+  companyId   String
+  code        String
+  name        String
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company              Company                @relation(fields: [companyId], references: [id])
+  financialTransactions FinancialTransaction[]
+  accountsPayable      AccountsPayable[]
+  accountsReceivable   AccountsReceivable[]
+  purchaseOrders       PurchaseOrder[]
+  saleOrders           SaleOrder[]
+
+  @@unique([companyId, code])
+  @@map("cost_centers")
+}
+
+model AccountsReceivable {
+  id             String           @id @default(uuid())
+  companyId      String
+  customerId     String?
+  saleOrderId    String?
+  costCenterId   String?
+  documentNumber String?
+  description    String
+  amount         Decimal          @db.Decimal(15, 2)
+  balanceDue     Decimal          @db.Decimal(15, 2)
+  status         ReceivableStatus @default(PENDING)
+  dueDate        DateTime
+  issueDate      DateTime         @default(now())
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  company      Company       @relation(fields: [companyId], references: [id])
+  customer     Customer?     @relation(fields: [customerId], references: [id])
+  saleOrder    SaleOrder?    @relation(fields: [saleOrderId], references: [id])
+  costCenter   CostCenter?   @relation(fields: [costCenterId], references: [id])
+  transactions FinancialTransaction[]
+
+  @@map("accounts_receivable")
+}
+
+model AccountsPayable {
+  id              String         @id @default(uuid())
+  companyId       String
+  supplierId      String?
+  purchaseOrderId String?
+  costCenterId    String?
+  documentNumber  String?
+  description     String
+  amount          Decimal        @db.Decimal(15, 2)
+  balanceDue      Decimal        @db.Decimal(15, 2)
+  status          PayableStatus  @default(PENDING)
+  dueDate         DateTime
+  issueDate       DateTime       @default(now())
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  company       Company        @relation(fields: [companyId], references: [id])
+  supplier      Supplier?      @relation(fields: [supplierId], references: [id])
+  purchaseOrder PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
+  costCenter    CostCenter?    @relation(fields: [costCenterId], references: [id])
+  transactions  FinancialTransaction[]
+
+  @@map("accounts_payable")
+}

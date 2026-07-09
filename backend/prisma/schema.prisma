@@ -1,0 +1,4602 @@
+// ============================================================
+// IMPÉRIO ERP — Prisma Schema
+// Multi-tenant SaaS ERP — PostgreSQL 16
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────────────────────
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED
+}
+
+enum DiscountScope {
+  SALE
+  ITEM
+}
+
+enum ReceivableStatus {
+  PENDING
+  PARTIALLY_PAID
+  PAID
+  CANCELLED
+  OVERDUE
+}
+
+enum PayableStatus {
+  PENDING
+  PARTIALLY_PAID
+  PAID
+  CANCELLED
+  OVERDUE
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  PENDING_VERIFICATION
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  PLATFORM_ADMIN
+  COMPANY_OWNER
+  COMPANY_ADMIN
+  MANAGER
+  SUPERVISOR
+  EMPLOYEE
+  VIEWER
+}
+
+enum CompanyStatus {
+  ACTIVE
+  SUSPENDED_BY_BILLING
+  SUSPENDED_BY_ADMIN
+  TRIAL
+  CANCELLED
+  DELETED
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  PAST_DUE
+  SUSPENDED
+  CANCELLED
+  EXPIRED
+}
+
+enum SubscriptionInterval {
+  MONTHLY
+  YEARLY
+}
+
+enum CustomerType {
+  INDIVIDUAL
+  BUSINESS
+}
+
+enum CustomerStatus {
+  ACTIVE
+  INACTIVE
+  BLOCKED
+}
+
+enum AddressType {
+  BILLING
+  SHIPPING
+  PRIMARY
+  SECONDARY
+}
+
+enum ProductType {
+  PHYSICAL
+  DIGITAL
+  SERVICE
+  KIT
+}
+
+enum ProductStatus {
+  ACTIVE
+  INACTIVE
+  DRAFT
+  ARCHIVED
+}
+
+enum SaleStatus {
+  DRAFT
+  PENDING
+  CONFIRMED
+  PROCESSING
+  COMPLETED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CASH
+  CREDIT_CARD
+  DEBIT_CARD
+  PIX
+  BANK_TRANSFER
+  CHECK
+  INSTALLMENT
+}
+
+enum StockMovementType {
+  ENTRY
+  EXIT
+  TRANSFER
+  ADJUSTMENT
+  RETURN
+  LOSS
+  INITIAL
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  SENT
+  CONFIRMED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CANCELLED
+}
+
+enum SupplierStatus {
+  ACTIVE
+  INACTIVE
+  BLOCKED
+}
+
+enum FinancialTransactionType {
+  INCOME
+  EXPENSE
+  TRANSFER
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+  FAILED
+}
+
+enum AccountType {
+  CHECKING
+  SAVINGS
+  CASH
+  CREDIT_CARD
+  INVESTMENT
+}
+
+enum NotificationPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  READ
+  FAILED
+}
+
+enum NotificationType {
+  SYSTEM
+  BUSINESS
+  SECURITY
+  BILLING
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  ACCESS_DENIED
+  EXPORT
+  IMPORT
+}
+
+enum EmploymentStatus {
+  ACTIVE
+  SUSPENDED
+  TERMINATED
+  ON_LEAVE
+}
+
+enum WorkflowInstanceStatus {
+  PENDING
+  IN_PROGRESS
+  APPROVED
+  REJECTED
+  EXPIRED
+  CANCELLED
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  DELEGATED
+}
+
+enum AiProviderType {
+  OPENAI
+  ANTHROPIC
+  CUSTOM
+}
+
+enum SyncStatus {
+  PENDING
+  SYNCING
+  COMPLETED
+  FAILED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  OPEN
+  PAID
+  VOID
+  UNCOLLECTIBLE
+}
+
+enum ExternalUserType {
+  CUSTOMER
+  SUPPLIER
+  PARTNER
+}
+
+// ─────────────────────────────────────────────────────────────
+// SAAS PLATFORM ENTITIES
+// ─────────────────────────────────────────────────────────────
+
+model Plan {
+  id             String               @id @default(uuid())
+  name           String
+  description    String?
+  price          Decimal              @db.Decimal(10, 2)
+  interval       SubscriptionInterval @default(MONTHLY)
+  trialDays      Int                  @default(14)
+  maxUsers       Int                  @default(5)
+  maxProducts    Int                  @default(100)
+  maxCustomers   Int                  @default(200)
+  maxStorageMb   Int                  @default(1024)
+  maxBranches    Int                  @default(1)
+  maxApiRequests Int                  @default(10000)
+  featuresJson   Json?                @default("{}")
+  isActive       Boolean              @default(true)
+  isPublic       Boolean              @default(true)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  subscriptions Subscription[]
+
+  @@map("plans")
+}
+
+model Subscription {
+  id                 String             @id @default(uuid())
+  companyId          String             @unique
+  planId             String
+  status             SubscriptionStatus @default(TRIAL)
+  trialEndsAt        DateTime?
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  cancelledAt        DateTime?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  plan    Plan                  @relation(fields: [planId], references: [id])
+  company Company               @relation(fields: [companyId], references: [id])
+  history SubscriptionHistory[]
+
+  @@index([companyId])
+  @@map("subscriptions")
+}
+
+model SubscriptionHistory {
+  id             String   @id @default(uuid())
+  subscriptionId String
+  fromPlanId     String?
+  toPlanId       String?
+  action         String
+  reason         String?
+  performedBy    String?
+  createdAt      DateTime @default(now())
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id])
+
+  @@map("subscription_history")
+}
+
+// ─────────────────────────────────────────────────────────────
+// CORE COMPANY / TENANT
+// ─────────────────────────────────────────────────────────────
+
+model Company {
+  id           String        @id @default(uuid())
+  name         String
+  slug         String        @unique
+  document     String?       @unique
+  email        String?
+  phone        String?
+  website      String?
+  logoUrl      String?
+  status       CompanyStatus @default(TRIAL)
+  timezone     String        @default("America/Sao_Paulo")
+  locale       String        @default("pt-BR")
+  currencyCode String        @default("BRL")
+  settingsJson Json?         @default("{}")
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  deletedAt    DateTime?
+
+  subscription            Subscription?
+  users                   UserCompany[]
+  customers               Customer[]
+  products                Product[]
+  categories              Category[]
+  brands                  Brand[]
+  suppliers               Supplier[]
+  warehouses              Warehouse[]
+  salesOrders             SaleOrder[]
+  purchaseOrders          PurchaseOrder[]
+  accounts                FinancialAccount[]
+  transactions            FinancialTransaction[]
+  departments             Department[]
+  teams                   Team[]
+  employeeProfiles        EmployeeProfile[]
+  notifications           Notification[]
+  auditLogs               AuditLog[]
+  taxConfigurations       TaxConfiguration[]
+  costCenters             CostCenter[]
+  saleDiscounts           SaleDiscount[]
+  saleTaxes               SaleTax[]
+  accountsReceivable      AccountsReceivable[]
+  accountsPayable         AccountsPayable[]
+  notificationPreferences NotificationPreference[]
+  notificationTemplates   NotificationTemplate[]
+  notificationQueues      NotificationQueue[]
+  securityEvents          SecurityEvent[]
+  userActivities          UserActivity[]
+  reportConfigs           ReportConfig[]
+  reportExecutions        ReportExecution[]
+  webhookEndpoints        WebhookEndpoint[]
+  webhookDeliveries       WebhookDelivery[]
+  apiKeys                 ApiKey[]
+  workflowDefinitions     WorkflowDefinition[]
+  businessRules           BusinessRule[]
+  workflowInstances       WorkflowInstance[]
+  approvalRequests        ApprovalRequest[]
+
+  analyticCubes          AnalyticCube[]
+  dashboards             Dashboard[]
+  kpiMetrics             KpiMetric[]
+  materializedViewLogs   MaterializedViewLog[]
+  aiProviderConfigs      AiProviderConfig[]
+  promptTemplates        PromptTemplate[]
+  aiAuditTrails          AiAuditTrail[]
+  aiPolicies             AiPolicy[]
+  mobileDevices          MobileDevice[]
+  syncStates             SyncState[]
+  pushNotificationTokens PushNotificationToken[]
+  externalUsers          ExternalUser[]
+  featureFlags           FeatureFlag[]
+  usageQuotas            UsageQuota[]
+  billingInvoices        BillingInvoice[]
+
+  fiscalProfile     FiscalProfile?
+  fiscalCertificate FiscalCertificate?
+  fiscalSeries      FiscalSeries[]
+  fiscalOperations  FiscalOperation[]
+  taxRules          TaxRule[]
+
+  nfes Nfe[]
+
+  nfces Nfce[]
+
+  ctes Cte[]
+
+  mdfes Mdfe[]
+
+  nfseProviders NfseProvider?
+  nfses         Nfse[]
+
+  spedGenerations SpedGeneration[]
+
+  esocialEmployer  EsocialEmployer?
+  reinfContributor ReinfContributor?
+  dctfWebPeriods   DctfWebPeriod[]
+
+  pixAccounts         PixAccount[]
+  pixWebhooks         PixWebhook[]
+  boletos             Boleto[]
+  bankAccounts        BankAccount[]
+  bankReconciliations BankReconciliation[]
+
+  predictionLogs PredictionLog[]
+
+  pluginInstallations PluginInstallation[]
+  whiteLabelConfig    WhiteLabelConfig?
+
+  regionalDeployments RegionalDeployment[]
+  countryConfigs      CountryConfiguration[]
+  kmsIntegration      KmsIntegration?
+  regionalAudits      RegionalAudit[]
+
+  developers          Developer[]
+  entWebhookEndpoints EntWebhookEndpoint[]
+  pluginLicenses      PluginLicense[]
+  pluginPurchases     PluginPurchase[]
+
+  opSamlProviders           OpSamlProvider[]
+  opOidcProviders           OpOidcProvider[]
+  opLdapConnectors          OpLdapConnector[]
+  opAdConnectors            OpAdConnector[]
+  opScimProvisionings       OpScimProvisioning[]
+  opGroupSyncs              OpGroupSync[]
+  opTenantIsolationPolicy   OpTenantIsolationPolicy?
+  opResourceQuota           OpResourceQuota?
+  opBillingPolicy           OpBillingPolicy?
+  opTenantMigrations        OpTenantMigration[]
+  opTenantBackups           OpTenantBackup[]
+  opCrossRegionReplications OpCrossRegionReplication[]
+  opDisasterRecoveries      OpDisasterRecovery[]
+  opDataClassifications     OpDataClassification[]
+  opRetentionPolicies       OpRetentionPolicy[]
+  opLegalHolds              OpLegalHold[]
+  opPrivacyEngine           OpPrivacyEngine?
+  opThreatDetections        OpThreatDetection[]
+  opSecurityPolicies        OpSecurityPolicy[]
+  opReleaseChannel          OpReleaseChannel?
+
+  @@index([slug])
+  @@index([document])
+  @@map("companies")
+}
+
+// ─────────────────────────────────────────────────────────────
+// USERS & AUTH
+// ─────────────────────────────────────────────────────────────
+
+model User {
+  id              String     @id @default(uuid())
+  email           String     @unique
+  passwordHash    String
+  firstName       String
+  lastName        String
+  avatarUrl       String?
+  status          UserStatus @default(PENDING_VERIFICATION)
+  emailVerifiedAt DateTime?
+  lastLoginAt     DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  deletedAt       DateTime?
+
+  companies               UserCompany[]
+  refreshTokens           RefreshToken[]
+  employeeProfile         EmployeeProfile?
+  auditLogs               AuditLog[]               @relation("AuditUser")
+  notifications           Notification[]
+  notificationPreferences NotificationPreference[]
+  notificationQueues      NotificationQueue[]
+  securityEvents          SecurityEvent[]
+  userActivities          UserActivity[]
+  reportExecutions        ReportExecution[]
+  workflowInstances       WorkflowInstance[]
+  approvalRequests        ApprovalRequest[]
+
+  @@index([email])
+  @@index([status])
+  @@map("users")
+}
+
+model UserCompany {
+  id        String   @id @default(uuid())
+  userId    String
+  companyId String
+  role      UserRole @default(EMPLOYEE)
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, companyId])
+  @@index([companyId])
+  @@map("user_companies")
+}
+
+model RefreshToken {
+  id         String    @id @default(uuid())
+  userId     String
+  token      String    @unique
+  deviceInfo String?
+  ipAddress  String?
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+// ─────────────────────────────────────────────────────────────
+// ORGANIZATION
+// ─────────────────────────────────────────────────────────────
+
+model Department {
+  id                String   @id @default(uuid())
+  companyId         String
+  name              String
+  description       String?
+  managerEmployeeId String?
+  parentId          String?
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  company   Company           @relation(fields: [companyId], references: [id])
+  parent    Department?       @relation("DepartmentHierarchy", fields: [parentId], references: [id])
+  children  Department[]      @relation("DepartmentHierarchy")
+  teams     Team[]
+  employees EmployeeProfile[]
+
+  @@index([companyId])
+  @@map("departments")
+}
+
+model Team {
+  id           String   @id @default(uuid())
+  companyId    String
+  departmentId String?
+  name         String
+  description  String?
+  teamLeaderId String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  company    Company      @relation(fields: [companyId], references: [id])
+  department Department?  @relation(fields: [departmentId], references: [id])
+  members    TeamMember[]
+
+  @@index([companyId])
+  @@map("teams")
+}
+
+model TeamMember {
+  id           String    @id @default(uuid())
+  teamId       String
+  employeeId   String
+  assignedAt   DateTime  @default(now())
+  unassignedAt DateTime?
+
+  team     Team            @relation(fields: [teamId], references: [id])
+  employee EmployeeProfile @relation(fields: [employeeId], references: [id])
+
+  @@unique([teamId, employeeId])
+  @@map("team_members")
+}
+
+model EmployeeProfile {
+  id               String           @id @default(uuid())
+  companyId        String
+  userId           String           @unique
+  departmentId     String?
+  badgeId          String?
+  jobTitle         String?
+  employmentStatus EmploymentStatus @default(ACTIVE)
+  hiredAt          DateTime?
+  terminatedAt     DateTime?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  company    Company      @relation(fields: [companyId], references: [id])
+  user       User         @relation(fields: [userId], references: [id])
+  department Department?  @relation(fields: [departmentId], references: [id])
+  teams      TeamMember[]
+
+  @@index([companyId])
+  @@map("employee_profiles")
+}
+
+// ─────────────────────────────────────────────────────────────
+// CUSTOMERS
+// ─────────────────────────────────────────────────────────────
+
+model Customer {
+  id          String         @id @default(uuid())
+  companyId   String
+  type        CustomerType   @default(INDIVIDUAL)
+  name        String
+  document    String?
+  email       String?
+  phone       String?
+  status      CustomerStatus @default(ACTIVE)
+  creditLimit Decimal?       @db.Decimal(15, 2)
+  notes       String?
+  tags        String[]       @default([])
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  deletedAt   DateTime?
+
+  company     Company              @relation(fields: [companyId], references: [id])
+  addresses   CustomerAddress[]
+  contacts    CustomerContact[]
+  sales       SaleOrder[]
+  receivables AccountsReceivable[]
+
+  @@unique([companyId, document])
+  @@index([companyId])
+  @@map("customers")
+}
+
+model CustomerAddress {
+  id         String      @id @default(uuid())
+  customerId String
+  type       AddressType @default(PRIMARY)
+  street     String
+  number     String?
+  complement String?
+  district   String?
+  city       String
+  state      String
+  zipCode    String
+  country    String      @default("BR")
+  isDefault  Boolean     @default(false)
+  createdAt  DateTime    @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@map("customer_addresses")
+}
+
+model CustomerContact {
+  id         String   @id @default(uuid())
+  customerId String
+  name       String
+  role       String?
+  email      String?
+  phone      String?
+  isPrimary  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@map("customer_contacts")
+}
+
+// ─────────────────────────────────────────────────────────────
+// PRODUCTS, BRANDS, CATEGORIES & UNITS
+// ─────────────────────────────────────────────────────────────
+
+model Brand {
+  id          String    @id @default(uuid())
+  companyId   String
+  name        String
+  slug        String
+  description String?
+  logoUrl     String?
+  website     String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  company  Company   @relation(fields: [companyId], references: [id])
+  products Product[]
+
+  @@unique([companyId, slug])
+  @@index([companyId])
+  @@map("brands")
+}
+
+model UnitOfMeasure {
+  id           String   @id @default(uuid())
+  companyId    String?
+  name         String
+  abbreviation String
+  isSystem     Boolean  @default(false)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  products Product[]
+
+  @@index([companyId])
+  @@map("units_of_measure")
+}
+
+model Category {
+  id          String   @id @default(uuid())
+  companyId   String
+  name        String
+  slug        String
+  description String?
+  parentId    String?
+  imageUrl    String?
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company  Company    @relation(fields: [companyId], references: [id])
+  parent   Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryHierarchy")
+  products Product[]
+
+  @@unique([companyId, slug])
+  @@index([companyId])
+  @@map("categories")
+}
+
+model Product {
+  id             String        @id @default(uuid())
+  companyId      String
+  categoryId     String?
+  type           ProductType   @default(PHYSICAL)
+  status         ProductStatus @default(ACTIVE)
+  sku            String
+  name           String
+  description    String?
+  barcode        String?
+  unit           String        @default("UN")
+  costPrice      Decimal       @db.Decimal(15, 4)
+  salePrice      Decimal       @db.Decimal(15, 4)
+  minStockQty    Decimal       @default(0) @db.Decimal(15, 3)
+  weight         Decimal?      @db.Decimal(10, 3)
+  imageUrl       String?
+  tags           String[]      @default([])
+  attributesJson Json?         @default("{}")
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  deletedAt      DateTime?
+
+  company         Company             @relation(fields: [companyId], references: [id])
+  category        Category?           @relation(fields: [categoryId], references: [id])
+  stockMovements  StockMovement[]
+  saleItems       SaleOrderItem[]
+  purchaseItems   PurchaseOrderItem[]
+  supplierLinks   ProductSupplier[]
+  Brand           Brand?              @relation(fields: [brandId], references: [id])
+  brandId         String?
+  UnitOfMeasure   UnitOfMeasure?      @relation(fields: [unitOfMeasureId], references: [id])
+  unitOfMeasureId String?
+  InventoryLevel  InventoryLevel[]
+  NfeItem         NfeItem[]
+  NfceItem        NfceItem[]
+
+  @@unique([companyId, sku])
+  @@index([sku])
+  @@index([status])
+  @@index([companyId])
+  @@map("products")
+}
+
+// ─────────────────────────────────────────────────────────────
+// SUPPLIERS
+// ─────────────────────────────────────────────────────────────
+
+model Supplier {
+  id           String         @id @default(uuid())
+  companyId    String
+  name         String
+  document     String?
+  email        String?
+  phone        String?
+  website      String?
+  status       SupplierStatus @default(ACTIVE)
+  notes        String?
+  paymentTerms String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  deletedAt    DateTime?
+
+  company        Company           @relation(fields: [companyId], references: [id])
+  productLinks   ProductSupplier[]
+  purchaseOrders PurchaseOrder[]
+  payables       AccountsPayable[]
+
+  @@unique([companyId, document])
+  @@index([companyId])
+  @@map("suppliers")
+}
+
+model ProductSupplier {
+  id            String   @id @default(uuid())
+  productId     String
+  supplierId    String
+  supplierSku   String?
+  supplierPrice Decimal? @db.Decimal(15, 4)
+  minOrderQty   Decimal? @db.Decimal(15, 3)
+  leadTimeDays  Int?
+  isPreferred   Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  product  Product  @relation(fields: [productId], references: [id])
+  supplier Supplier @relation(fields: [supplierId], references: [id])
+
+  @@unique([productId, supplierId])
+  @@map("product_suppliers")
+}
+
+// ─────────────────────────────────────────────────────────────
+// INVENTORY
+// ─────────────────────────────────────────────────────────────
+
+model Warehouse {
+  id          String   @id @default(uuid())
+  companyId   String
+  name        String
+  description String?
+  address     String?
+  isDefault   Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company         Company          @relation(fields: [companyId], references: [id])
+  stockMovements  StockMovement[]
+  inventoryLevels InventoryLevel[]
+
+  @@index([companyId])
+  @@map("warehouses")
+}
+
+model StockMovement {
+  id            String            @id @default(uuid())
+  companyId     String
+  warehouseId   String
+  productId     String
+  type          StockMovementType
+  quantity      Decimal           @db.Decimal(15, 3)
+  unitCost      Decimal?          @db.Decimal(15, 4)
+  referenceId   String?
+  referenceType String?
+  batchNumber   String?
+  expiresAt     DateTime?
+  notes         String?
+  performedBy   String?
+  createdAt     DateTime          @default(now())
+
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id])
+  product   Product   @relation(fields: [productId], references: [id])
+
+  @@index([companyId])
+  @@map("stock_movements")
+}
+
+model InventoryLevel {
+  id          String   @id @default(uuid())
+  companyId   String
+  warehouseId String
+  productId   String
+  quantity    Decimal  @default(0) @db.Decimal(15, 3)
+  reservedQty Decimal  @default(0) @db.Decimal(15, 3)
+  updatedAt   DateTime @updatedAt
+
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id])
+  product   Product   @relation(fields: [productId], references: [id])
+
+  @@unique([warehouseId, productId])
+  @@index([companyId])
+  @@map("inventory_levels")
+}
+
+// ─────────────────────────────────────────────────────────────
+// SALES
+// ─────────────────────────────────────────────────────────────
+
+model SaleOrder {
+  id                 String     @id @default(uuid())
+  companyId          String
+  customerId         String?
+  sellerId           String?
+  orderNumber        String
+  status             SaleStatus @default(DRAFT)
+  subtotal           Decimal    @db.Decimal(15, 2)
+  discountAmount     Decimal    @default(0) @db.Decimal(15, 2)
+  taxAmount          Decimal    @default(0) @db.Decimal(15, 2)
+  totalAmount        Decimal    @db.Decimal(15, 2)
+  notes              String?
+  confirmedAt        DateTime?
+  completedAt        DateTime?
+  cancelledAt        DateTime?
+  cancellationReason String?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  company      Company              @relation(fields: [companyId], references: [id])
+  customer     Customer?            @relation(fields: [customerId], references: [id])
+  costCenter   CostCenter?          @relation(fields: [costCenterId], references: [id])
+  costCenterId String?
+  items        SaleOrderItem[]
+  payments     SalePayment[]
+  discounts    SaleDiscount[]
+  taxes        SaleTax[]
+  receivables  AccountsReceivable[]
+  Nfe          Nfe?
+  Nfce         Nfce?
+
+  @@unique([companyId, orderNumber])
+  @@index([companyId])
+  @@map("sale_orders")
+}
+
+model SaleOrderItem {
+  id             String   @id @default(uuid())
+  saleOrderId    String
+  productId      String
+  productName    String
+  productSku     String
+  quantity       Decimal  @db.Decimal(15, 3)
+  unitPrice      Decimal  @db.Decimal(15, 4)
+  discountPct    Decimal  @default(0) @db.Decimal(5, 2)
+  discountAmount Decimal  @default(0) @db.Decimal(15, 2)
+  totalAmount    Decimal  @db.Decimal(15, 2)
+  createdAt      DateTime @default(now())
+
+  saleOrder SaleOrder @relation(fields: [saleOrderId], references: [id], onDelete: Cascade)
+  product   Product   @relation(fields: [productId], references: [id])
+
+  @@map("sale_order_items")
+}
+
+model SalePayment {
+  id          String        @id @default(uuid())
+  saleOrderId String
+  method      PaymentMethod
+  amount      Decimal       @db.Decimal(15, 2)
+  reference   String?
+  paidAt      DateTime?
+  createdAt   DateTime      @default(now())
+
+  saleOrder SaleOrder @relation(fields: [saleOrderId], references: [id], onDelete: Cascade)
+
+  @@map("sale_payments")
+}
+
+// ─────────────────────────────────────────────────────────────
+// PURCHASING
+// ─────────────────────────────────────────────────────────────
+
+model PurchaseOrder {
+  id          String              @id @default(uuid())
+  companyId   String
+  supplierId  String
+  orderNumber String
+  status      PurchaseOrderStatus @default(DRAFT)
+  subtotal    Decimal             @db.Decimal(15, 2)
+  taxAmount   Decimal             @default(0) @db.Decimal(15, 2)
+  totalAmount Decimal             @db.Decimal(15, 2)
+  expectedAt  DateTime?
+  receivedAt  DateTime?
+  cancelledAt DateTime?
+  notes       String?
+  createdBy   String?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  company      Company             @relation(fields: [companyId], references: [id])
+  supplier     Supplier            @relation(fields: [supplierId], references: [id])
+  costCenter   CostCenter?         @relation(fields: [costCenterId], references: [id])
+  costCenterId String?
+  items        PurchaseOrderItem[]
+  payables     AccountsPayable[]
+
+  @@unique([companyId, orderNumber])
+  @@index([companyId])
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderItem {
+  id              String   @id @default(uuid())
+  purchaseOrderId String
+  productId       String
+  productName     String
+  quantity        Decimal  @db.Decimal(15, 3)
+  unitCost        Decimal  @db.Decimal(15, 4)
+  totalCost       Decimal  @db.Decimal(15, 2)
+  receivedQty     Decimal  @default(0) @db.Decimal(15, 3)
+  createdAt       DateTime @default(now())
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  product       Product       @relation(fields: [productId], references: [id])
+
+  @@map("purchase_order_items")
+}
+
+// ─────────────────────────────────────────────────────────────
+// FINANCIAL
+// ─────────────────────────────────────────────────────────────
+
+model FinancialAccount {
+  id        String      @id @default(uuid())
+  companyId String
+  name      String
+  type      AccountType
+  balance   Decimal     @default(0) @db.Decimal(15, 2)
+  isDefault Boolean     @default(false)
+  isActive  Boolean     @default(true)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  company      Company                @relation(fields: [companyId], references: [id])
+  transactions FinancialTransaction[]
+
+  @@index([companyId])
+  @@map("financial_accounts")
+}
+
+model FinancialCategory {
+  id          String                   @id @default(uuid())
+  companyId   String?
+  type        FinancialTransactionType
+  name        String
+  description String?
+  parentId    String?
+  isSystem    Boolean                  @default(false)
+  isActive    Boolean                  @default(true)
+  createdAt   DateTime                 @default(now())
+
+  parent       FinancialCategory?     @relation("FinancialCategoryHierarchy", fields: [parentId], references: [id])
+  children     FinancialCategory[]    @relation("FinancialCategoryHierarchy")
+  transactions FinancialTransaction[]
+
+  @@index([companyId])
+  @@map("financial_categories")
+}
+
+model FinancialTransaction {
+  id            String                   @id @default(uuid())
+  companyId     String
+  accountId     String
+  categoryId    String?
+  type          FinancialTransactionType
+  status        TransactionStatus        @default(PENDING)
+  amount        Decimal                  @db.Decimal(15, 2)
+  description   String
+  referenceId   String?
+  referenceType String?
+  dueDate       DateTime?
+  paidAt        DateTime?
+  notes         String?
+  createdBy     String?
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
+
+  company              Company             @relation(fields: [companyId], references: [id])
+  account              FinancialAccount    @relation(fields: [accountId], references: [id])
+  category             FinancialCategory?  @relation(fields: [categoryId], references: [id])
+  costCenter           CostCenter?         @relation(fields: [costCenterId], references: [id])
+  costCenterId         String?
+  accountsReceivable   AccountsReceivable? @relation(fields: [accountsReceivableId], references: [id])
+  accountsReceivableId String?
+  accountsPayable      AccountsPayable?    @relation(fields: [accountsPayableId], references: [id])
+  accountsPayableId    String?
+
+  @@index([companyId])
+  @@map("financial_transactions")
+}
+
+// ─────────────────────────────────────────────────────────────
+// NOTIFICATIONS
+// ─────────────────────────────────────────────────────────────
+
+model Notification {
+  id        String               @id @default(uuid())
+  companyId String
+  userId    String
+  type      NotificationType     @default(SYSTEM)
+  priority  NotificationPriority @default(MEDIUM)
+  status    NotificationStatus   @default(PENDING)
+  title     String
+  body      String
+  dataJson  Json?
+  readAt    DateTime?
+  expiresAt DateTime?
+  createdAt DateTime             @default(now())
+
+  company Company @relation(fields: [companyId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@index([companyId])
+  @@map("notifications")
+}
+
+// ─────────────────────────────────────────────────────────────
+// AUDIT
+// ─────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id           String      @id @default(uuid())
+  companyId    String?
+  userId       String?
+  action       AuditAction
+  entityName   String
+  entityId     String?
+  previousData Json?
+  newData      Json?
+  ipAddress    String?
+  userAgent    String?
+  metadata     Json?
+  createdAt    DateTime    @default(now())
+
+  company Company? @relation(fields: [companyId], references: [id])
+  user    User?    @relation("AuditUser", fields: [userId], references: [id])
+
+  @@index([companyId])
+  @@map("audit_logs")
+}
+
+// ─────────────────────────────────────────────────────────────
+// TAX CONFIGURATION
+// ─────────────────────────────────────────────────────────────
+
+model TaxConfiguration {
+  id            String   @id @default(uuid())
+  companyId     String
+  name          String
+  code          String
+  rate          Decimal  @db.Decimal(8, 4)
+  description   String?
+  isActive      Boolean  @default(true)
+  appliesToType String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  company Company   @relation(fields: [companyId], references: [id])
+  SaleTax SaleTax[]
+
+  @@unique([companyId, code])
+  @@index([companyId])
+  @@map("tax_configurations")
+}
+
+// ─────────────────────────────────────────────────────────────
+// NEW FINANCIAL & SALES ENTITIES (Fase 23C)
+// ─────────────────────────────────────────────────────────────
+
+model SaleDiscount {
+  id                String        @id @default(uuid())
+  companyId         String
+  saleId            String
+  type              DiscountType  @default(PERCENTAGE)
+  scope             DiscountScope @default(SALE)
+  description       String?
+  percentage        Decimal?      @db.Decimal(5, 2)
+  amount            Decimal?      @db.Decimal(15, 2)
+  approvedBy        String?
+  approvalRequestId String?
+  createdAt         DateTime      @default(now())
+
+  company   Company   @relation(fields: [companyId], references: [id])
+  saleOrder SaleOrder @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@map("sale_discounts")
+}
+
+model SaleTax {
+  id                 String   @id @default(uuid())
+  companyId          String
+  saleId             String
+  taxConfigurationId String
+  taxType            String
+  baseAmount         Decimal  @db.Decimal(15, 2)
+  percentage         Decimal  @db.Decimal(5, 2)
+  amount             Decimal  @db.Decimal(15, 2)
+  createdAt          DateTime @default(now())
+
+  company          Company          @relation(fields: [companyId], references: [id])
+  saleOrder        SaleOrder        @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  taxConfiguration TaxConfiguration @relation(fields: [taxConfigurationId], references: [id])
+
+  @@index([companyId])
+  @@map("sale_taxes")
+}
+
+model CostCenter {
+  id          String   @id @default(uuid())
+  companyId   String
+  code        String
+  name        String
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company               Company                @relation(fields: [companyId], references: [id])
+  financialTransactions FinancialTransaction[]
+  accountsPayable       AccountsPayable[]
+  accountsReceivable    AccountsReceivable[]
+  purchaseOrders        PurchaseOrder[]
+  saleOrders            SaleOrder[]
+
+  @@unique([companyId, code])
+  @@index([companyId])
+  @@map("cost_centers")
+}
+
+model AccountsReceivable {
+  id             String           @id @default(uuid())
+  companyId      String
+  customerId     String?
+  saleOrderId    String?
+  costCenterId   String?
+  documentNumber String?
+  description    String
+  amount         Decimal          @db.Decimal(15, 2)
+  balanceDue     Decimal          @db.Decimal(15, 2)
+  status         ReceivableStatus @default(PENDING)
+  dueDate        DateTime
+  issueDate      DateTime         @default(now())
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  company      Company                @relation(fields: [companyId], references: [id])
+  customer     Customer?              @relation(fields: [customerId], references: [id])
+  saleOrder    SaleOrder?             @relation(fields: [saleOrderId], references: [id])
+  costCenter   CostCenter?            @relation(fields: [costCenterId], references: [id])
+  transactions FinancialTransaction[]
+
+  @@index([companyId])
+  @@map("accounts_receivable")
+}
+
+model AccountsPayable {
+  id              String        @id @default(uuid())
+  companyId       String
+  supplierId      String?
+  purchaseOrderId String?
+  costCenterId    String?
+  documentNumber  String?
+  description     String
+  amount          Decimal       @db.Decimal(15, 2)
+  balanceDue      Decimal       @db.Decimal(15, 2)
+  status          PayableStatus @default(PENDING)
+  dueDate         DateTime
+  issueDate       DateTime      @default(now())
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  company       Company                @relation(fields: [companyId], references: [id])
+  supplier      Supplier?              @relation(fields: [supplierId], references: [id])
+  purchaseOrder PurchaseOrder?         @relation(fields: [purchaseOrderId], references: [id])
+  costCenter    CostCenter?            @relation(fields: [costCenterId], references: [id])
+  transactions  FinancialTransaction[]
+
+  @@index([companyId])
+  @@map("accounts_payable")
+}
+
+// ─────────────────────────────────────────────────────────────
+
+enum ReportStatus {
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model NotificationPreference {
+  id        String   @id @default(uuid())
+  companyId String
+  userId    String
+  email     Boolean  @default(true)
+  sms       Boolean  @default(false)
+  push      Boolean  @default(true)
+  inApp     Boolean  @default(true)
+  updatedAt DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@unique([companyId, userId])
+  @@index([companyId])
+  @@map("notification_preferences")
+}
+
+model NotificationTemplate {
+  id        String   @id @default(uuid())
+  companyId String
+  code      String
+  name      String
+  subject   String?
+  body      String
+  type      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@unique([companyId, code, type])
+  @@index([companyId])
+  @@map("notification_templates")
+}
+
+model NotificationQueue {
+  id           String    @id @default(uuid())
+  companyId    String
+  userId       String?
+  type         String
+  status       String    @default("PENDING")
+  recipient    String
+  subject      String?
+  body         String
+  metadata     Json?
+  retryCount   Int       @default(0)
+  errorMessage String?
+  scheduledFor DateTime?
+  sentAt       DateTime?
+  createdAt    DateTime  @default(now())
+
+  company Company @relation(fields: [companyId], references: [id])
+  user    User?   @relation(fields: [userId], references: [id])
+
+  @@index([companyId])
+  @@map("notification_queue")
+}
+
+model SecurityEvent {
+  id        String   @id @default(uuid())
+  companyId String?
+  userId    String?
+  eventType String
+  ipAddress String?
+  userAgent String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  company Company? @relation(fields: [companyId], references: [id])
+  user    User?    @relation(fields: [userId], references: [id])
+
+  @@index([companyId])
+  @@map("security_events")
+}
+
+model UserActivity {
+  id        String   @id @default(uuid())
+  companyId String?
+  userId    String?
+  action    String
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  company Company? @relation(fields: [companyId], references: [id])
+  user    User?    @relation(fields: [userId], references: [id])
+
+  @@index([companyId])
+  @@map("user_activities")
+}
+
+model ReportConfig {
+  id          String   @id @default(uuid())
+  companyId   String
+  code        String
+  name        String
+  description String?
+  queryMap    Json
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company    Company           @relation(fields: [companyId], references: [id])
+  executions ReportExecution[]
+
+  @@unique([companyId, code])
+  @@index([companyId])
+  @@map("report_configs")
+}
+
+model ReportExecution {
+  id             String       @id @default(uuid())
+  companyId      String
+  reportConfigId String
+  requestedBy    String
+  status         ReportStatus @default(QUEUED)
+  parameters     Json?
+  fileUrl        String?
+  errorMessage   String?
+  startedAt      DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime     @default(now())
+
+  company      Company      @relation(fields: [companyId], references: [id])
+  reportConfig ReportConfig @relation(fields: [reportConfigId], references: [id])
+  user         User         @relation(fields: [requestedBy], references: [id])
+
+  @@index([companyId])
+  @@map("report_executions")
+}
+
+model WebhookEndpoint {
+  id        String   @id @default(uuid())
+  companyId String
+  url       String
+  secret    String?
+  events    String[]
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company    Company           @relation(fields: [companyId], references: [id])
+  deliveries WebhookDelivery[]
+
+  @@index([companyId])
+  @@map("webhook_endpoints")
+}
+
+model WebhookDelivery {
+  id                String   @id @default(uuid())
+  companyId         String
+  webhookEndpointId String
+  eventId           String
+  eventName         String
+  payload           Json
+  status            String
+  statusCode        Int?
+  responseBody      String?
+  retryCount        Int      @default(0)
+  createdAt         DateTime @default(now())
+
+  company         Company         @relation(fields: [companyId], references: [id])
+  webhookEndpoint WebhookEndpoint @relation(fields: [webhookEndpointId], references: [id])
+
+  @@index([companyId])
+  @@map("webhook_deliveries")
+}
+
+model ApiKey {
+  id        String    @id @default(uuid())
+  companyId String
+  name      String
+  keyHash   String
+  scopes    String[]
+  expiresAt DateTime?
+  lastUsed  DateTime?
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
+  @@map("api_keys")
+}
+
+model WorkflowDefinition {
+  id          String   @id @default(uuid())
+  companyId   String
+  code        String
+  name        String
+  entityType  String
+  triggerType String
+  steps       Json
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company   Company            @relation(fields: [companyId], references: [id])
+  instances WorkflowInstance[]
+  rules     BusinessRule[]
+
+  @@unique([companyId, code])
+  @@index([companyId])
+  @@map("workflow_definitions")
+}
+
+model BusinessRule {
+  id                   String   @id @default(uuid())
+  companyId            String
+  workflowDefinitionId String
+  name                 String
+  conditionExpression  String
+  isActive             Boolean  @default(true)
+  createdAt            DateTime @default(now())
+
+  company            Company            @relation(fields: [companyId], references: [id])
+  workflowDefinition WorkflowDefinition @relation(fields: [workflowDefinitionId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@map("business_rules")
+}
+
+model WorkflowInstance {
+  id                   String                 @id @default(uuid())
+  companyId            String
+  workflowDefinitionId String
+  entityId             String
+  entityType           String
+  status               WorkflowInstanceStatus @default(PENDING)
+  currentStepIndex     Int                    @default(0)
+  startedBy            String?
+  completedAt          DateTime?
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+
+  company            Company            @relation(fields: [companyId], references: [id])
+  workflowDefinition WorkflowDefinition @relation(fields: [workflowDefinitionId], references: [id])
+  startedByUser      User?              @relation(fields: [startedBy], references: [id])
+  approvalRequests   ApprovalRequest[]
+
+  @@index([companyId])
+  @@map("workflow_instances")
+}
+
+model ApprovalRequest {
+  id                 String         @id @default(uuid())
+  companyId          String
+  workflowInstanceId String
+  approverUserId     String?
+  approverRoleId     String?
+  status             ApprovalStatus @default(PENDING)
+  comments           String?
+  actionTakenAt      DateTime?
+  createdAt          DateTime       @default(now())
+
+  company          Company          @relation(fields: [companyId], references: [id])
+  workflowInstance WorkflowInstance @relation(fields: [workflowInstanceId], references: [id], onDelete: Cascade)
+  approverUser     User?            @relation(fields: [approverUserId], references: [id])
+
+  @@index([companyId])
+  @@map("approval_requests")
+}
+
+// ─────────────────────────────────────────────────────────────
+// BUSINESS INTELLIGENCE (PHASE 23E)
+// ─────────────────────────────────────────────────────────────
+
+model AnalyticCube {
+  id          String   @id @default(uuid())
+  companyId   String
+  name        String
+  description String?
+  tableName   String
+  refreshCron String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@unique([companyId, name])
+  @@index([companyId])
+  @@map("analytic_cubes")
+}
+
+model Dashboard {
+  id          String   @id @default(uuid())
+  companyId   String
+  name        String
+  description String?
+  layoutJson  Json     @default("{}")
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company Company           @relation(fields: [companyId], references: [id])
+  widgets DashboardWidget[]
+
+  @@index([companyId])
+  @@map("dashboards")
+}
+
+model DashboardWidget {
+  id          String   @id @default(uuid())
+  dashboardId String
+  title       String
+  type        String
+  configJson  Json     @default("{}")
+  position    Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  dashboard Dashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+
+  @@map("dashboard_widgets")
+}
+
+model KpiMetric {
+  id          String   @id @default(uuid())
+  companyId   String
+  code        String
+  name        String
+  description String?
+  queryMap    Json
+  threshold   Decimal? @db.Decimal(15, 2)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@unique([companyId, code])
+  @@index([companyId])
+  @@map("kpi_metrics")
+}
+
+model MaterializedViewLog {
+  id           String   @id @default(uuid())
+  companyId    String
+  viewName     String
+  refreshedAt  DateTime @default(now())
+  durationMs   Int
+  rowsAffected Int?
+  status       String   @default("SUCCESS")
+  errorMessage String?
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
+  @@map("materialized_view_logs")
+}
+
+// ─────────────────────────────────────────────────────────────
+// ARTIFICIAL INTELLIGENCE (PHASE 23E)
+// ─────────────────────────────────────────────────────────────
+
+model AiProviderConfig {
+  id        String         @id @default(uuid())
+  companyId String
+  provider  AiProviderType
+  apiKey    String?
+  baseUrl   String?
+  isActive  Boolean        @default(true)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@unique([companyId, provider])
+  @@index([companyId])
+  @@map("ai_provider_configs")
+}
+
+model PromptTemplate {
+  id           String   @id @default(uuid())
+  companyId    String
+  code         String
+  description  String?
+  systemPrompt String
+  userPrompt   String
+  version      Int      @default(1)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@unique([companyId, code])
+  @@index([companyId])
+  @@map("prompt_templates")
+}
+
+model AiAuditTrail {
+  id               String   @id @default(uuid())
+  companyId        String
+  userId           String?
+  provider         String
+  modelUsed        String
+  promptTokens     Int      @default(0)
+  completionTokens Int      @default(0)
+  totalCost        Decimal? @db.Decimal(10, 6)
+  contextType      String?
+  contextId        String?
+  createdAt        DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
+  @@map("ai_audit_trails")
+}
+
+model AiPolicy {
+  id                String   @id @default(uuid())
+  companyId         String
+  maxTokensPerMonth Int      @default(100000)
+  requestsPerMinute Int      @default(60)
+  allowedModels     String[]
+  isActive          Boolean  @default(true)
+  updatedAt         DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@unique([companyId])
+  @@index([companyId])
+  @@map("ai_policies")
+}
+
+// ─────────────────────────────────────────────────────────────
+// MOBILE BACKEND & SYNC (PHASE 23E)
+// ─────────────────────────────────────────────────────────────
+
+model MobileDevice {
+  id          String    @id @default(uuid())
+  companyId   String
+  userId      String?
+  deviceId    String
+  deviceModel String?
+  osVersion   String?
+  appVersion  String?
+  lastSyncAt  DateTime?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@unique([companyId, deviceId])
+  @@index([companyId])
+  @@map("mobile_devices")
+}
+
+model SyncState {
+  id            String     @id @default(uuid())
+  companyId     String
+  deviceId      String
+  entityName    String
+  lastWatermark DateTime
+  status        SyncStatus @default(COMPLETED)
+  updatedAt     DateTime   @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@unique([companyId, deviceId, entityName])
+  @@index([companyId])
+  @@map("sync_states")
+}
+
+model PushNotificationToken {
+  id        String   @id @default(uuid())
+  companyId String
+  userId    String?
+  deviceId  String
+  token     String
+  platform  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@unique([companyId, deviceId])
+  @@index([companyId])
+  @@map("push_notification_tokens")
+}
+
+// ─────────────────────────────────────────────────────────────
+// EXTERNAL PORTAL (PHASE 23E)
+// ─────────────────────────────────────────────────────────────
+
+model ExternalUser {
+  id           String           @id @default(uuid())
+  companyId    String
+  email        String
+  passwordHash String
+  type         ExternalUserType
+  referenceId  String // CustomerId or SupplierId
+  isActive     Boolean          @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@unique([companyId, email])
+  @@index([companyId])
+  @@map("external_users")
+}
+
+model PortalSession {
+  id             String   @id @default(uuid())
+  externalUserId String
+  token          String   @unique
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+
+  @@map("portal_sessions")
+}
+
+// ─────────────────────────────────────────────────────────────
+// SAAS PLATFORM (PHASE 23E)
+// ─────────────────────────────────────────────────────────────
+
+model FeatureFlag {
+  id          String   @id @default(uuid())
+  companyId   String?
+  code        String
+  description String?
+  isEnabled   Boolean  @default(false)
+  updatedAt   DateTime @updatedAt
+
+  company Company? @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
+  @@map("feature_flags")
+}
+
+model UsageQuota {
+  id           String    @id @default(uuid())
+  companyId    String
+  metric       String
+  limit        Int
+  currentValue Int       @default(0)
+  resetAt      DateTime?
+  updatedAt    DateTime  @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@unique([companyId, metric])
+  @@index([companyId])
+  @@map("usage_quotas")
+}
+
+model BillingInvoice {
+  id             String        @id @default(uuid())
+  companyId      String
+  subscriptionId String
+  invoiceNumber  String
+  amount         Decimal       @db.Decimal(15, 2)
+  status         InvoiceStatus @default(DRAFT)
+  dueDate        DateTime
+  paidAt         DateTime?
+  invoicePdfUrl  String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@unique([companyId, invoiceNumber])
+  @@index([companyId])
+  @@map("billing_invoices")
+}
+
+// ─────────────────────────────────────────────────────────────
+// FASE 24A: FUNDAÇÃO FISCAL BRASILEIRA
+// ─────────────────────────────────────────────────────────────
+
+enum CrtType {
+  SIMPLES_NACIONAL
+  SIMPLES_EXCESSO
+  REGIME_NORMAL
+}
+
+enum FiscalEnvironment {
+  HOMOLOGACAO
+  PRODUCAO
+}
+
+model FiscalProfile {
+  id              String            @id @default(uuid())
+  companyId       String            @unique
+  environment     FiscalEnvironment @default(HOMOLOGACAO)
+  crt             CrtType           @default(SIMPLES_NACIONAL)
+  companyName     String?
+  tradeName       String?
+  cnpj            String?
+  ie              String?
+  im              String?
+  cnae            String?
+  addressStreet   String?
+  addressNumber   String?
+  addressComp     String?
+  addressDistrict String?
+  ibgeCityCode    String?
+  cityName        String?
+  state           String?
+  zipCode         String?
+  phone           String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
+  @@map("fiscal_profiles")
+}
+
+model FiscalCertificate {
+  id           String    @id @default(uuid())
+  companyId    String    @unique
+  filename     String
+  dataBase64   String
+  passwordHash String
+  validFrom    DateTime?
+  validUntil   DateTime?
+  thumbprint   String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
+  @@map("fiscal_certificates")
+}
+
+model FiscalSeries {
+  id              String            @id @default(uuid())
+  companyId       String
+  documentModel   String // 55, 65, etc.
+  series          Int
+  currentSequence Int               @default(0)
+  environment     FiscalEnvironment
+  isActive        Boolean           @default(true)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@unique([companyId, documentModel, series, environment])
+  @@index([companyId])
+  @@map("fiscal_series")
+}
+
+model Ncm {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  description String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  @@index([code])
+  @@map("fiscal_ncm")
+}
+
+model Cest {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  ncmPrefix   String?
+  description String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  @@index([code])
+  @@map("fiscal_cest")
+}
+
+model Cfop {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  description String
+  application String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  @@index([code])
+  @@map("fiscal_cfop")
+}
+
+model IbgeCity {
+  id        String   @id @default(uuid())
+  code      String   @unique
+  name      String
+  state     String
+  createdAt DateTime @default(now())
+
+  @@index([code])
+  @@index([state])
+  @@map("fiscal_ibge_cities")
+}
+
+model BacenCountry {
+  id        String   @id @default(uuid())
+  code      String   @unique
+  name      String
+  createdAt DateTime @default(now())
+
+  @@map("fiscal_bacen_countries")
+}
+
+model FiscalOperation {
+  id          String   @id @default(uuid())
+  companyId   String
+  code        String
+  description String
+  cfopState   String?
+  cfopInter   String?
+  cfopExport  String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company Company   @relation(fields: [companyId], references: [id])
+  TaxRule TaxRule[]
+
+  @@unique([companyId, code])
+  @@index([companyId])
+  @@map("fiscal_operations")
+}
+
+model TaxRule {
+  id                String   @id @default(uuid())
+  companyId         String
+  fiscalOperationId String
+  name              String
+  stateOrigin       String?
+  stateDestination  String?
+  cstIcms           String?
+  csosn             String?
+  icmsBaseCalcPct   Decimal? @db.Decimal(5, 2)
+  icmsRate          Decimal? @db.Decimal(5, 2)
+  cstPis            String?
+  pisRate           Decimal? @db.Decimal(5, 2)
+  cstCofins         String?
+  cofinsRate        Decimal? @db.Decimal(5, 2)
+  cstIpi            String?
+  ipiRate           Decimal? @db.Decimal(5, 2)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  company   Company         @relation(fields: [companyId], references: [id])
+  operation FiscalOperation @relation(fields: [fiscalOperationId], references: [id])
+
+  @@index([companyId])
+  @@map("fiscal_tax_rules")
+}
+
+// ─────────────────────────────────────────────────────────────
+// FASE 24B: NF-E (MODELO 55)
+// ─────────────────────────────────────────────────────────────
+
+enum NfeStatus {
+  DRAFT
+  VALIDATING
+  SIGNED
+  TRANSMITTING
+  AUTHORIZED
+  REJECTED
+  DENIED
+  CANCELLED
+  PROCESSING
+}
+
+enum NfeEventType {
+  CANCELLATION
+  CORRECTION_LETTER
+  MANIFESTATION
+  INUTILIZATION
+}
+
+model Nfe {
+  id           String            @id @default(uuid())
+  companyId    String
+  saleOrderId  String?           @unique
+  number       Int
+  series       Int
+  model        String            @default("55")
+  accessKey    String?           @unique
+  status       NfeStatus         @default(DRAFT)
+  environment  FiscalEnvironment
+  emissionDate DateTime          @default(now())
+
+  // Totals
+  totalAmount    Decimal @db.Decimal(15, 2)
+  totalProducts  Decimal @db.Decimal(15, 2)
+  totalDiscounts Decimal @db.Decimal(15, 2)
+  totalIcms      Decimal @db.Decimal(15, 2)
+  totalIpi       Decimal @db.Decimal(15, 2)
+  totalPis       Decimal @db.Decimal(15, 2)
+  totalCofins    Decimal @db.Decimal(15, 2)
+
+  // SEFAZ Integration Data
+  protocol      String?
+  receipt       String?
+  xmlAuthorized String? @db.Text
+  sefazMessage  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company   Company    @relation(fields: [companyId], references: [id])
+  saleOrder SaleOrder? @relation(fields: [saleOrderId], references: [id])
+
+  items      NfeItem[]
+  payments   NfePayment[]
+  transports NfeTransport[]
+  events     NfeEvent[]
+
+  @@unique([companyId, model, series, number, environment])
+  @@index([companyId])
+  @@map("fiscal_nfes")
+}
+
+model NfeItem {
+  id          String  @id @default(uuid())
+  nfeId       String
+  itemNumber  Int
+  productId   String
+  productCode String
+  productName String
+  ncm         String
+  cfop        String
+  quantity    Decimal @db.Decimal(15, 4)
+  unitPrice   Decimal @db.Decimal(15, 4)
+  totalPrice  Decimal @db.Decimal(15, 2)
+
+  // Taxes
+  icmsCst   String?
+  icmsBase  Decimal? @db.Decimal(15, 2)
+  icmsRate  Decimal? @db.Decimal(5, 2)
+  icmsValue Decimal? @db.Decimal(15, 2)
+
+  ipiCst   String?
+  ipiBase  Decimal? @db.Decimal(15, 2)
+  ipiRate  Decimal? @db.Decimal(5, 2)
+  ipiValue Decimal? @db.Decimal(15, 2)
+
+  pisCst   String?
+  pisBase  Decimal? @db.Decimal(15, 2)
+  pisRate  Decimal? @db.Decimal(5, 2)
+  pisValue Decimal? @db.Decimal(15, 2)
+
+  cofinsCst   String?
+  cofinsBase  Decimal? @db.Decimal(15, 2)
+  cofinsRate  Decimal? @db.Decimal(5, 2)
+  cofinsValue Decimal? @db.Decimal(15, 2)
+
+  nfe     Nfe     @relation(fields: [nfeId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@map("fiscal_nfe_items")
+}
+
+model NfePayment {
+  id            String  @id @default(uuid())
+  nfeId         String
+  paymentMethod String
+  amount        Decimal @db.Decimal(15, 2)
+  cardCnpj      String?
+  cardAuth      String?
+
+  nfe Nfe @relation(fields: [nfeId], references: [id], onDelete: Cascade)
+
+  @@map("fiscal_nfe_payments")
+}
+
+model NfeTransport {
+  id           String  @id @default(uuid())
+  nfeId        String
+  modality     String // 0=Emitente, 1=Destinatario, etc
+  carrierId    String?
+  carrierName  String?
+  carrierCnpj  String?
+  vehiclePlate String?
+  vehicleState String?
+
+  nfe Nfe @relation(fields: [nfeId], references: [id], onDelete: Cascade)
+
+  @@map("fiscal_nfe_transports")
+}
+
+model NfeEvent {
+  id            String       @id @default(uuid())
+  nfeId         String
+  eventType     NfeEventType
+  sequence      Int          @default(1)
+  description   String
+  protocol      String?
+  xmlPayload    String?      @db.Text
+  sefazResponse String?
+  eventDate     DateTime     @default(now())
+
+  nfe Nfe @relation(fields: [nfeId], references: [id], onDelete: Cascade)
+
+  @@map("fiscal_nfe_events")
+}
+
+// ─────────────────────────────────────────────────────────────
+// FASE 24C: NFC-E (MODELO 65)
+// ─────────────────────────────────────────────────────────────
+
+enum NfceStatus {
+  DRAFT
+  VALIDATING
+  SIGNED
+  TRANSMITTING
+  AUTHORIZED
+  REJECTED
+  DENIED
+  CANCELLED
+  PROCESSING
+  OFFLINE_CONTINGENCY
+}
+
+enum NfceEventType {
+  CANCELLATION
+  INUTILIZATION
+  SYNCHRONIZATION
+}
+
+model Nfce {
+  id           String            @id @default(uuid())
+  companyId    String
+  saleOrderId  String?           @unique
+  number       Int
+  series       Int
+  model        String            @default("65")
+  accessKey    String?           @unique
+  status       NfceStatus        @default(DRAFT)
+  environment  FiscalEnvironment
+  emissionDate DateTime          @default(now())
+
+  // QRCode & Contingency
+  qrCodeUrl         String?   @db.Text
+  cscToken          String?
+  cscId             String?
+  contingencyDate   DateTime?
+  contingencyReason String?
+
+  // Totals
+  totalAmount    Decimal @db.Decimal(15, 2)
+  totalProducts  Decimal @db.Decimal(15, 2)
+  totalDiscounts Decimal @db.Decimal(15, 2)
+  totalIcms      Decimal @db.Decimal(15, 2)
+  totalPis       Decimal @db.Decimal(15, 2)
+  totalCofins    Decimal @db.Decimal(15, 2)
+
+  // SEFAZ Integration Data
+  protocol      String?
+  receipt       String?
+  xmlAuthorized String? @db.Text
+  sefazMessage  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company   Company    @relation(fields: [companyId], references: [id])
+  saleOrder SaleOrder? @relation(fields: [saleOrderId], references: [id])
+
+  items    NfceItem[]
+  payments NfcePayment[]
+  consumer NfceConsumer?
+  events   NfceEvent[]
+
+  @@unique([companyId, model, series, number, environment])
+  @@index([companyId])
+  @@map("fiscal_nfces")
+}
+
+model NfceItem {
+  id          String  @id @default(uuid())
+  nfceId      String
+  itemNumber  Int
+  productId   String
+  productCode String
+  productName String
+  ncm         String
+  cfop        String
+  quantity    Decimal @db.Decimal(15, 4)
+  unitPrice   Decimal @db.Decimal(15, 4)
+  totalPrice  Decimal @db.Decimal(15, 2)
+
+  // Taxes
+  icmsCst   String?
+  icmsBase  Decimal? @db.Decimal(15, 2)
+  icmsRate  Decimal? @db.Decimal(5, 2)
+  icmsValue Decimal? @db.Decimal(15, 2)
+
+  pisCst   String?
+  pisBase  Decimal? @db.Decimal(15, 2)
+  pisRate  Decimal? @db.Decimal(5, 2)
+  pisValue Decimal? @db.Decimal(15, 2)
+
+  cofinsCst   String?
+  cofinsBase  Decimal? @db.Decimal(15, 2)
+  cofinsRate  Decimal? @db.Decimal(5, 2)
+  cofinsValue Decimal? @db.Decimal(15, 2)
+
+  nfce    Nfce    @relation(fields: [nfceId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@map("fiscal_nfce_items")
+}
+
+model NfcePayment {
+  id            String  @id @default(uuid())
+  nfceId        String
+  paymentMethod String
+  amount        Decimal @db.Decimal(15, 2)
+  cardCnpj      String?
+  cardAuth      String?
+
+  nfce Nfce @relation(fields: [nfceId], references: [id], onDelete: Cascade)
+
+  @@map("fiscal_nfce_payments")
+}
+
+model NfceConsumer {
+  id       String  @id @default(uuid())
+  nfceId   String  @unique
+  document String? // CPF/CNPJ
+  name     String?
+  address  String?
+
+  nfce Nfce @relation(fields: [nfceId], references: [id], onDelete: Cascade)
+
+  @@map("fiscal_nfce_consumers")
+}
+
+model NfceEvent {
+  id            String        @id @default(uuid())
+  nfceId        String
+  eventType     NfceEventType
+  sequence      Int           @default(1)
+  description   String
+  protocol      String?
+  xmlPayload    String?       @db.Text
+  sefazResponse String?
+  eventDate     DateTime      @default(now())
+
+  nfce Nfce @relation(fields: [nfceId], references: [id], onDelete: Cascade)
+
+  @@map("fiscal_nfce_events")
+}
+
+// ─────────────────────────────────────────────────────────────
+// FASE 24D: CT-E (MODELO 57)
+// ─────────────────────────────────────────────────────────────
+
+enum CteStatus {
+  DRAFT
+  VALIDATING
+  SIGNED
+  TRANSMITTING
+  AUTHORIZED
+  REJECTED
+  DENIED
+  CANCELLED
+  PROCESSING
+}
+
+enum CteEventType {
+  CANCELLATION
+  CORRECTION_LETTER
+  INUTILIZATION
+}
+
+model Cte {
+  id           String            @id @default(uuid())
+  companyId    String
+  number       Int
+  series       Int
+  model        String            @default("57")
+  accessKey    String?           @unique
+  status       CteStatus         @default(DRAFT)
+  environment  FiscalEnvironment
+  emissionDate DateTime          @default(now())
+
+  // Participants
+  senderDocument   String?
+  senderName       String?
+  receiverDocument String?
+  receiverName     String?
+  carrierDocument  String?
+  carrierName      String?
+  takerType        Int     @default(0) // 0-Remetente, 1-Expedidor, 2-Recebedor, 3-Destinatario, 4-Outros
+
+  // Values
+  totalAmount  Decimal @db.Decimal(15, 2)
+  totalFreight Decimal @db.Decimal(15, 2)
+
+  // SEFAZ Integration Data
+  protocol      String?
+  receipt       String?
+  xmlAuthorized String? @db.Text
+  sefazMessage  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  documents CteDocument[]
+  cargo     CteCargo[]
+  vehicles  CteVehicle[]
+  drivers   CteDriver[]
+  insurance CteInsurance[]
+  taxes     CteTax[]
+  payments  CtePayment[]
+  events    CteEvent[]
+
+  @@unique([companyId, model, series, number, environment])
+  @@index([companyId])
+  @@map("fiscal_ctes")
+}
+
+model CteDocument {
+  id        String  @id @default(uuid())
+  cteId     String
+  accessKey String? // NFe/CTe/NFCe access key
+  docType   String // NFE, NFCE, CTE, OUTRO
+  docNumber String?
+
+  cte Cte @relation(fields: [cteId], references: [id], onDelete: Cascade)
+
+  @@map("fiscal_cte_documents")
+}
+
+model CteCargo {
+  id          String   @id @default(uuid())
+  cteId       String
+  productName String
+  unitType    String // KG, UN, TON
+  quantity    Decimal  @db.Decimal(15, 4)
+  totalValue  Decimal  @db.Decimal(15, 2)
+  weight      Decimal? @db.Decimal(15, 4)
+
+  cte Cte @relation(fields: [cteId], references: [id], onDelete: Cascade)
+
+  @@map("fiscal_cte_cargos")
+}
+
+model CteVehicle {
+  id        String  @id @default(uuid())
+  cteId     String
+  plate     String
+  state     String
+  rntrc     String?
+  renavam   String?
+  isTrailer Boolean @default(false)
+
+  cte Cte @relation(fields: [cteId], references: [id], onDelete: Cascade)
+
+  @@map("fiscal_cte_vehicles")
+}
+
+model CteDriver {
+  id    String @id @default(uuid())
+  cteId String
+  cpf   String
+  name  String
+
+  cte Cte @relation(fields: [cteId], references: [id], onDelete: Cascade)
+
+  @@map("fiscal_cte_drivers")
+}
+
+model CteInsurance {
+  id           String  @id @default(uuid())
+  cteId        String
+  insurerName  String
+  policyNumber String
+  amount       Decimal @db.Decimal(15, 2)
+
+  cte Cte @relation(fields: [cteId], references: [id], onDelete: Cascade)
+
+  @@map("fiscal_cte_insurances")
+}
+
+model CteTax {
+  id        String  @id @default(uuid())
+  cteId     String
+  taxType   String // ICMS, PIS, COFINS
+  cst       String
+  baseValue Decimal @db.Decimal(15, 2)
+  rate      Decimal @db.Decimal(5, 2)
+  amount    Decimal @db.Decimal(15, 2)
+
+  cte Cte @relation(fields: [cteId], references: [id], onDelete: Cascade)
+
+  @@map("fiscal_cte_taxes")
+}
+
+model CtePayment {
+  id     String  @id @default(uuid())
+  cteId  String
+  method String
+  amount Decimal @db.Decimal(15, 2)
+
+  cte Cte @relation(fields: [cteId], references: [id], onDelete: Cascade)
+
+  @@map("fiscal_cte_payments")
+}
+
+model CteEvent {
+  id            String       @id @default(uuid())
+  cteId         String
+  eventType     CteEventType
+  sequence      Int          @default(1)
+  description   String
+  protocol      String?
+  xmlPayload    String?      @db.Text
+  sefazResponse String?
+  eventDate     DateTime     @default(now())
+
+  cte Cte @relation(fields: [cteId], references: [id], onDelete: Cascade)
+
+  @@map("fiscal_cte_events")
+}
+
+// ─────────────────────────────────────────────────────────────
+// FASE 24E: MDF-E (MODELO 58)
+// ─────────────────────────────────────────────────────────────
+
+enum MdfeStatus {
+  DRAFT
+  VALIDATING
+  SIGNED
+  TRANSMITTING
+  AUTHORIZED
+  REJECTED
+  DENIED
+  CANCELLED
+  CLOSED
+  PROCESSING
+}
+
+enum MdfeEventType {
+  CANCELLATION
+  CLOSING
+  ADD_DRIVER
+  ADD_DOCUMENT
+}
+
+model Mdfe {
+  id           String            @id @default(uuid())
+  companyId    String
+  number       Int
+  series       Int
+  model        String            @default("58")
+  accessKey    String?           @unique
+  status       MdfeStatus        @default(DRAFT)
+  environment  FiscalEnvironment
+  emissionDate DateTime          @default(now())
+
+  // Route & Route Closure Info
+  ufStart       String
+  ufEnd         String
+  closeDate     DateTime?
+  closeProtocol String?
+
+  // SEFAZ Integration Data
+  protocol      String?
+  receipt       String?
+  xmlAuthorized String? @db.Text
+  sefazMessage  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  documents      MdfeDocument[]
+  vehicles       MdfeVehicle[]
+  trailers       MdfeTrailer[]
+  drivers        MdfeDriver[]
+  routes         MdfeRoute[]
+  municipalities MdfeMunicipality[]
+  insurance      MdfeInsurance[]
+  cargo          MdfeCargo[]
+  events         MdfeEvent[]
+
+  @@unique([companyId, model, series, number, environment])
+  @@index([companyId])
+  @@map("fiscal_mdfes")
+}
+
+model MdfeDocument {
+  id             String  @id @default(uuid())
+  mdfeId         String
+  accessKey      String? // NFe/CTe/NFCe access key
+  docType        String // NFE, NFCE, CTE, MDFE
+  municipalityId String? // Associated with unloading municipality
+
+  mdfe Mdfe @relation(fields: [mdfeId], references: [id], onDelete: Cascade)
+
+  @@map("fiscal_mdfe_documents")
+}
+
+model MdfeVehicle {
+  id       String   @id @default(uuid())
+  mdfeId   String
+  plate    String
+  state    String
+  rntrc    String?
+  renavam  String?
+  tare     Decimal? @db.Decimal(10, 2)
+  capacity Decimal? @db.Decimal(10, 2)
+  bodyType String?
+
+  mdfe Mdfe @relation(fields: [mdfeId], references: [id], onDelete: Cascade)
+
+  @@map("fiscal_mdfe_vehicles")
+}
+
+model MdfeTrailer {
+  id       String   @id @default(uuid())
+  mdfeId   String
+  plate    String
+  state    String
+  rntrc    String?
+  renavam  String?
+  tare     Decimal? @db.Decimal(10, 2)
+  capacity Decimal? @db.Decimal(10, 2)
+  bodyType String?
+
+  mdfe Mdfe @relation(fields: [mdfeId], references: [id], onDelete: Cascade)
+
+  @@map("fiscal_mdfe_trailers")
+}
+
+model MdfeDriver {
+  id     String @id @default(uuid())
+  mdfeId String
+  cpf    String
+  name   String
+
+  mdfe Mdfe @relation(fields: [mdfeId], references: [id], onDelete: Cascade)
+
+  @@map("fiscal_mdfe_drivers")
+}
+
+model MdfeRoute {
+  id        String @id @default(uuid())
+  mdfeId    String
+  ufTransit String
+  sequence  Int
+
+  mdfe Mdfe @relation(fields: [mdfeId], references: [id], onDelete: Cascade)
+
+  @@map("fiscal_mdfe_routes")
+}
+
+model MdfeMunicipality {
+  id       String @id @default(uuid())
+  mdfeId   String
+  ibgeCode String
+  name     String
+  type     String // ORIGIN, DESTINATION, TRANSIT
+
+  mdfe Mdfe @relation(fields: [mdfeId], references: [id], onDelete: Cascade)
+
+  @@map("fiscal_mdfe_municipalities")
+}
+
+model MdfeInsurance {
+  id           String   @id @default(uuid())
+  mdfeId       String
+  insurerName  String
+  policyNumber String
+  amount       Decimal? @db.Decimal(15, 2)
+  cnpj         String?
+  averbation   String?
+
+  mdfe Mdfe @relation(fields: [mdfeId], references: [id], onDelete: Cascade)
+
+  @@map("fiscal_mdfe_insurances")
+}
+
+model MdfeCargo {
+  id          String  @id @default(uuid())
+  mdfeId      String
+  weightUnit  String // KG, TON
+  totalWeight Decimal @db.Decimal(15, 4)
+  totalValue  Decimal @db.Decimal(15, 2)
+
+  mdfe Mdfe @relation(fields: [mdfeId], references: [id], onDelete: Cascade)
+
+  @@map("fiscal_mdfe_cargos")
+}
+
+model MdfeEvent {
+  id            String        @id @default(uuid())
+  mdfeId        String
+  eventType     MdfeEventType
+  sequence      Int           @default(1)
+  description   String
+  protocol      String?
+  xmlPayload    String?       @db.Text
+  sefazResponse String?
+  eventDate     DateTime      @default(now())
+
+  mdfe Mdfe @relation(fields: [mdfeId], references: [id], onDelete: Cascade)
+
+  @@map("fiscal_mdfe_events")
+}
+
+// ─────────────────────────────────────────────────────────────
+// FASE 24F: NFS-E (NOTA FISCAL DE SERVIÇOS ELETRÔNICA)
+// ─────────────────────────────────────────────────────────────
+
+enum NfseStatus {
+  DRAFT
+  VALIDATING
+  SIGNED
+  TRANSMITTING
+  AUTHORIZED
+  REJECTED
+  DENIED
+  CANCELLED
+  SUBSTITUTED
+  PROCESSING
+}
+
+enum NfseEventType {
+  CANCELLATION
+  SUBSTITUTION
+  RPS_GENERATION
+  EMAIL_SENT
+}
+
+model NfseProvider {
+  id               String  @id @default(uuid())
+  companyId        String  @unique
+  providerName     String // ABRASF, GINFES, NACIONAL, etc.
+  municipalityCode String
+  cnae             String?
+  municipalReg     String? // Inscrição Municipal
+  specialRegime    String? // Regime Especial de Tributação
+  taxIncentive     Boolean @default(false)
+  simplesNacional  Boolean @default(false)
+  active           Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  nfses Nfse[]
+
+  @@index([companyId])
+  @@map("fiscal_nfse_providers")
+}
+
+model Nfse {
+  id               String            @id @default(uuid())
+  companyId        String
+  providerId       String
+  number           Int?
+  series           String?
+  verificationCode String?           @unique
+  status           NfseStatus        @default(DRAFT)
+  environment      FiscalEnvironment
+  emissionDate     DateTime          @default(now())
+
+  // RPS Information
+  rpsNumber Int?
+  rpsSeries String?
+  rpsType   String? // RPS, NF Conjugada, Cupom
+
+  // Totals
+  totalServices   Decimal @db.Decimal(15, 2)
+  totalDeductions Decimal @db.Decimal(15, 2)
+  totalIss        Decimal @db.Decimal(15, 2)
+  totalRetentions Decimal @db.Decimal(15, 2)
+  netValue        Decimal @db.Decimal(15, 2)
+
+  // Participants
+  takerDocument String?
+  takerName     String?
+  takerAddress  String?
+  takerCity     String?
+  takerState    String?
+  takerZip      String?
+  takerEmail    String?
+
+  // SEFAZ/Prefeitura Integration Data
+  protocol        String?
+  receipt         String?
+  xmlAuthorized   String? @db.Text
+  providerMessage String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company  Company      @relation(fields: [companyId], references: [id])
+  provider NfseProvider @relation(fields: [providerId], references: [id])
+
+  items        NfseItem[]
+  services     NfseService[]
+  taxes        NfseTax[]
+  events       NfseEvent[]
+  cancellation NfseCancellation?
+  substitution NfseSubstitution?
+
+  @@unique([companyId, number, verificationCode, environment])
+  @@index([companyId])
+  @@map("fiscal_nfses")
+}
+
+model NfseItem {
+  id          String  @id @default(uuid())
+  nfseId      String
+  description String
+  quantity    Decimal @db.Decimal(15, 4)
+  unitPrice   Decimal @db.Decimal(15, 4)
+  totalPrice  Decimal @db.Decimal(15, 2)
+
+  nfse Nfse @relation(fields: [nfseId], references: [id], onDelete: Cascade)
+
+  @@map("fiscal_nfse_items")
+}
+
+model NfseService {
+  id            String  @id @default(uuid())
+  nfseId        String
+  itemListLc116 String // Item da lista LC 116/03
+  cnaeCode      String?
+  cityTaxCode   String?
+  description   String  @db.Text
+  cityCode      String // IBGE do município de prestação
+
+  nfse Nfse @relation(fields: [nfseId], references: [id], onDelete: Cascade)
+
+  @@map("fiscal_nfse_services")
+}
+
+model NfseTax {
+  id          String  @id @default(uuid())
+  nfseId      String
+  issRetained Boolean @default(false)
+  issRate     Decimal @db.Decimal(5, 2)
+  issValue    Decimal @db.Decimal(15, 2)
+  baseCalc    Decimal @db.Decimal(15, 2)
+
+  // Retentions
+  pisValue        Decimal? @db.Decimal(15, 2)
+  cofinsValue     Decimal? @db.Decimal(15, 2)
+  inssValue       Decimal? @db.Decimal(15, 2)
+  irValue         Decimal? @db.Decimal(15, 2)
+  csllValue       Decimal? @db.Decimal(15, 2)
+  otherRetentions Decimal? @db.Decimal(15, 2)
+
+  nfse Nfse @relation(fields: [nfseId], references: [id], onDelete: Cascade)
+
+  @@map("fiscal_nfse_taxes")
+}
+
+model NfseEvent {
+  id               String        @id @default(uuid())
+  nfseId           String
+  eventType        NfseEventType
+  sequence         Int           @default(1)
+  description      String
+  protocol         String?
+  xmlPayload       String?       @db.Text
+  providerResponse String?
+  eventDate        DateTime      @default(now())
+
+  nfse Nfse @relation(fields: [nfseId], references: [id], onDelete: Cascade)
+
+  @@map("fiscal_nfse_events")
+}
+
+model NfseCancellation {
+  id         String   @id @default(uuid())
+  nfseId     String   @unique
+  reason     String
+  cancelCode String?
+  protocol   String?
+  date       DateTime @default(now())
+
+  nfse Nfse @relation(fields: [nfseId], references: [id], onDelete: Cascade)
+
+  @@map("fiscal_nfse_cancellations")
+}
+
+model NfseSubstitution {
+  id             String   @id @default(uuid())
+  nfseId         String   @unique
+  replacedNfseId String
+  reason         String
+  date           DateTime @default(now())
+
+  nfse Nfse @relation(fields: [nfseId], references: [id], onDelete: Cascade)
+
+  @@map("fiscal_nfse_substitutions")
+}
+
+// ─────────────────────────────────────────────────────────────
+// FASE 24G: SPED FISCAL & CONTRIBUIÇÕES
+// ─────────────────────────────────────────────────────────────
+
+enum SpedType {
+  FISCAL
+  CONTRIBUTION
+}
+
+enum SpedStatus {
+  GENERATING
+  VALIDATING
+  COMPLETED
+  ERROR
+  EXPORTED
+}
+
+enum SpedEventType {
+  GENERATION_STARTED
+  GENERATED
+  VALIDATED
+  EXPORTED
+  ERROR
+  COMPLETED
+}
+
+model SpedGeneration {
+  id            String     @id @default(uuid())
+  companyId     String
+  spedType      SpedType
+  layoutVersion String // Ex: 018 (EFD ICMS/IPI)
+  startDate     DateTime
+  endDate       DateTime
+  status        SpedStatus @default(GENERATING)
+
+  // Official file properties
+  hashControl      String? @unique
+  metadata         String? @db.Text
+  txtFileContent   String? @db.Text
+  generationNumber Int     @default(1)
+
+  // Auditing and processing
+  errorMessage  String? @db.Text
+  processTimeMs Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  events SpedEvent[]
+  blocks SpedBlock[]
+
+  @@index([companyId])
+  @@map("fiscal_sped_generations")
+}
+
+model SpedBlock {
+  id               String @id @default(uuid())
+  spedGenerationId String
+  blockName        String // Ex: 0, B, C, D, E, G, H, K, 1, 9
+  recordsCount     Int    @default(0)
+
+  spedGeneration SpedGeneration @relation(fields: [spedGenerationId], references: [id], onDelete: Cascade)
+  records        SpedRecord[]
+
+  @@map("fiscal_sped_blocks")
+}
+
+model SpedRecord {
+  id          String @id @default(uuid())
+  spedBlockId String
+  recordType  String // Ex: 0000, 0001, C100, C170, C190
+  lineContent String @db.Text
+  sequence    Int
+
+  spedBlock SpedBlock @relation(fields: [spedBlockId], references: [id], onDelete: Cascade)
+
+  @@map("fiscal_sped_records")
+}
+
+model SpedEvent {
+  id               String        @id @default(uuid())
+  spedGenerationId String
+  eventType        SpedEventType
+  sequence         Int           @default(1)
+  description      String
+  eventDate        DateTime      @default(now())
+
+  spedGeneration SpedGeneration @relation(fields: [spedGenerationId], references: [id], onDelete: Cascade)
+
+  @@map("fiscal_sped_events")
+}
+
+// ─────────────────────────────────────────────────────────────
+// FASE 24H: eSocial, EFD-Reinf, DCTFWeb
+// ─────────────────────────────────────────────────────────────
+
+enum FederalEventStatus {
+  DRAFT
+  GENERATING
+  GENERATED
+  TRANSMITTING
+  ACCEPTED
+  REJECTED
+}
+
+// --- eSocial ---
+
+model EsocialEmployer {
+  id             String  @id @default(uuid())
+  companyId      String  @unique
+  employerType   Int // Classificação Tributária (S-1000)
+  cnae           String
+  transmiterCnpj String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  events  EsocialEvent[]
+  batches EsocialBatch[]
+
+  @@index([companyId])
+  @@map("fiscal_esocial_employers")
+}
+
+model EsocialEmployee {
+  id            String   @id @default(uuid())
+  companyId     String
+  cpf           String   @unique
+  pisPasep      String?
+  name          String
+  admissionDate DateTime
+  registration  String? // Matrícula
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  events EsocialEvent[]
+
+  @@index([companyId])
+  @@map("fiscal_esocial_employees")
+}
+
+model EsocialBatch {
+  id         String             @id @default(uuid())
+  employerId String
+  batchId    String             @unique
+  protocol   String?
+  status     FederalEventStatus @default(DRAFT)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  employer EsocialEmployer @relation(fields: [employerId], references: [id])
+  events   EsocialEvent[]
+
+  @@map("fiscal_esocial_batches")
+}
+
+model EsocialEvent {
+  id         String             @id @default(uuid())
+  employerId String
+  employeeId String?
+  batchId    String?
+  eventType  String // S-1000, S-2200, S-1200, etc
+  receipt    String?
+  xmlPayload String?            @db.Text
+  status     FederalEventStatus @default(DRAFT)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  employer EsocialEmployer  @relation(fields: [employerId], references: [id], onDelete: Cascade)
+  employee EsocialEmployee? @relation(fields: [employeeId], references: [id])
+  batch    EsocialBatch?    @relation(fields: [batchId], references: [id])
+
+  @@map("fiscal_esocial_events")
+}
+
+// --- EFD-Reinf ---
+
+model ReinfContributor {
+  id           String  @id @default(uuid())
+  companyId    String  @unique
+  contactName  String?
+  contactCpf   String?
+  contactPhone String?
+  contactEmail String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  events  ReinfEvent[]
+  batches ReinfBatch[]
+
+  @@index([companyId])
+  @@map("fiscal_reinf_contributors")
+}
+
+model ReinfBatch {
+  id            String             @id @default(uuid())
+  contributorId String
+  batchId       String             @unique
+  protocol      String?
+  status        FederalEventStatus @default(DRAFT)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  contributor ReinfContributor @relation(fields: [contributorId], references: [id])
+  events      ReinfEvent[]
+
+  @@map("fiscal_reinf_batches")
+}
+
+model ReinfEvent {
+  id            String             @id @default(uuid())
+  contributorId String
+  batchId       String?
+  eventType     String // R-1000, R-2010, R-2099, etc
+  receipt       String?
+  xmlPayload    String?            @db.Text
+  status        FederalEventStatus @default(DRAFT)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  contributor ReinfContributor @relation(fields: [contributorId], references: [id], onDelete: Cascade)
+  batch       ReinfBatch?      @relation(fields: [batchId], references: [id])
+
+  @@map("fiscal_reinf_events")
+}
+
+// --- DCTFWeb ---
+
+model DctfWebPeriod {
+  id           String  @id @default(uuid())
+  companyId    String
+  period       String // YYYY-MM
+  status       String // OPEN, CLOSED
+  totalDebits  Decimal @default(0.00) @db.Decimal(15, 2)
+  totalCredits Decimal @default(0.00) @db.Decimal(15, 2)
+  totalToPay   Decimal @default(0.00) @db.Decimal(15, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company      Company              @relation(fields: [companyId], references: [id])
+  declarations DctfWebDeclaration[]
+
+  @@index([companyId])
+  @@map("fiscal_dctfweb_periods")
+}
+
+model DctfWebDeclaration {
+  id              String             @id @default(uuid())
+  periodId        String
+  declarationType String // ORIGINAL, RETIFICADORA
+  receipt         String?
+  xmlPayload      String?            @db.Text
+  status          FederalEventStatus @default(DRAFT)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  period DctfWebPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+
+  @@map("fiscal_dctfweb_declarations")
+}
+
+// ─────────────────────────────────────────────────────────────
+// FASE 24I: ECOSSISTEMA FINANCEIRO BRASILEIRO
+// (PIX, Open Finance, CNAB, Boletos, TEF, Conciliação)
+// ─────────────────────────────────────────────────────────────
+
+enum PixChargeStatus {
+  ACTIVE
+  PAID
+  EXPIRED
+  CANCELLED
+}
+
+// --- PIX ---
+
+model PixAccount {
+  id           String  @id @default(uuid())
+  companyId    String
+  provider     String // Banco/PSP
+  clientId     String
+  clientSecret String // Criptografado AES-256
+  mtlsCertPath String?
+  active       Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  keys    PixKey[]
+  charges PixCharge[]
+
+  @@index([companyId])
+  @@map("fin_pix_accounts")
+}
+
+model PixKey {
+  id        String @id @default(uuid())
+  accountId String
+  keyType   String // CPF, CNPJ, EMAIL, PHONE, RANDOM
+  keyValue  String
+
+  account PixAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@map("fin_pix_keys")
+}
+
+model PixCharge {
+  id            String          @id @default(uuid())
+  accountId     String
+  txid          String          @unique
+  value         Decimal         @db.Decimal(15, 2)
+  status        PixChargeStatus @default(ACTIVE)
+  brCode        String?         @db.Text
+  payerDocument String?
+  payerName     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  account  PixAccount   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  payments PixPayment[]
+  refunds  PixRefund[]
+
+  @@map("fin_pix_charges")
+}
+
+model PixPayment {
+  id          String   @id @default(uuid())
+  chargeId    String
+  e2eId       String   @unique
+  amount      Decimal  @db.Decimal(15, 2)
+  paymentDate DateTime @default(now())
+
+  charge PixCharge @relation(fields: [chargeId], references: [id], onDelete: Cascade)
+
+  @@map("fin_pix_payments")
+}
+
+model PixRefund {
+  id       String  @id @default(uuid())
+  chargeId String
+  rtrId    String  @unique
+  amount   Decimal @db.Decimal(15, 2)
+  status   String
+
+  charge PixCharge @relation(fields: [chargeId], references: [id], onDelete: Cascade)
+
+  @@map("fin_pix_refunds")
+}
+
+model PixWebhook {
+  id         String  @id @default(uuid())
+  companyId  String
+  webhookUrl String
+  hmacKey    String
+  active     Boolean @default(true)
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
+  @@map("fin_pix_webhooks")
+}
+
+// --- BOLETOS ---
+
+model Boleto {
+  id             String   @id @default(uuid())
+  companyId      String
+  bankCode       String
+  ourNumber      String   @unique
+  documentNumber String
+  barcode        String?
+  digitableLine  String?
+  amount         Decimal  @db.Decimal(15, 2)
+  dueDate        DateTime
+  status         String // REGISTERED, PAID, CANCELLED, PROTESTED
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  occurrences BoletoOccurrence[]
+
+  @@index([companyId])
+  @@map("fin_boletos")
+}
+
+model BoletoOccurrence {
+  id             String   @id @default(uuid())
+  boletoId       String
+  occurrenceCode String
+  occurrenceDate DateTime
+  description    String
+
+  boleto Boleto @relation(fields: [boletoId], references: [id], onDelete: Cascade)
+
+  @@map("fin_boleto_occurrences")
+}
+
+// --- OPEN FINANCE & CNAB ---
+
+model BankAccount {
+  id              String @id @default(uuid())
+  companyId       String
+  bankCode        String
+  agency          String
+  accountNumber   String
+  digit           String
+  integrationType String // CNAB, OPEN_FINANCE
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  statements BankStatement[]
+
+  @@index([companyId])
+  @@map("fin_bank_accounts")
+}
+
+model BankStatement {
+  id            String   @id @default(uuid())
+  accountId     String
+  statementDate DateTime
+  balance       Decimal  @db.Decimal(15, 2)
+
+  account      BankAccount       @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  transactions BankTransaction[]
+
+  @@map("fin_bank_statements")
+}
+
+model BankTransaction {
+  id            String   @id @default(uuid())
+  statementId   String
+  transactionId String // External ID
+  amount        Decimal  @db.Decimal(15, 2)
+  type          String // CREDIT, DEBIT
+  description   String
+  date          DateTime
+
+  statement BankStatement @relation(fields: [statementId], references: [id], onDelete: Cascade)
+
+  @@map("fin_bank_transactions")
+}
+
+// --- RECONCILIATION ---
+
+model BankReconciliation {
+  id          String   @id @default(uuid())
+  companyId   String
+  periodStart DateTime
+  periodEnd   DateTime
+  status      String // PENDING, COMPLETED, PARTIAL
+
+  company Company                @relation(fields: [companyId], references: [id])
+  results ReconciliationResult[]
+
+  @@index([companyId])
+  @@map("fin_bank_reconciliations")
+}
+
+model ReconciliationResult {
+  id               String  @id @default(uuid())
+  reconciliationId String
+  bankTxId         String? // Reference to BankTransaction
+  systemTxId       String? // Reference to internal Financial transaction
+  matchType        String // AUTOMATIC, MANUAL
+  matchScore       Decimal @db.Decimal(5, 2)
+
+  reconciliation BankReconciliation @relation(fields: [reconciliationId], references: [id], onDelete: Cascade)
+
+  @@map("fin_reconciliation_results")
+}
+
+// ─────────────────────────────────────────────────────────────
+// FASE 25: ENTERPRISE INTELLIGENCE (DW, Data Lake, ML, Analytics)
+// ─────────────────────────────────────────────────────────────
+
+// --- DIMENSÕES (Star Schema) ---
+
+model DimDate {
+  id        Int      @id // YYYYMMDD
+  date      DateTime
+  year      Int
+  month     Int
+  day       Int
+  quarter   Int
+  dayOfWeek Int
+  isWeekend Boolean
+  isHoliday Boolean  @default(false)
+
+  sales      FactSales[]
+  financials FactFinancial[]
+
+  @@map("dw_dim_dates")
+}
+
+model DimCompany {
+  id         String @id @default(uuid())
+  originalId String @unique
+  name       String
+  cnpj       String
+  tenantPlan String
+
+  sales      FactSales[]
+  financials FactFinancial[]
+
+  @@map("dw_dim_companies")
+}
+
+model DimCustomer {
+  id         String  @id @default(uuid())
+  originalId String  @unique
+  name       String
+  document   String
+  segment    String?
+
+  sales FactSales[]
+
+  @@map("dw_dim_customers")
+}
+
+model DimProduct {
+  id         String  @id @default(uuid())
+  originalId String  @unique
+  name       String
+  sku        String
+  category   String?
+
+  sales FactSales[]
+
+  @@map("dw_dim_products")
+}
+
+// --- FATOS (Star Schema) ---
+
+model FactSales {
+  id         String @id @default(uuid())
+  dateId     Int
+  companyId  String
+  customerId String
+  productId  String
+
+  quantity       Int
+  unitPrice      Decimal @db.Decimal(15, 2)
+  totalAmount    Decimal @db.Decimal(15, 2)
+  discountAmount Decimal @db.Decimal(15, 2)
+  taxAmount      Decimal @db.Decimal(15, 2)
+
+  date     DimDate     @relation(fields: [dateId], references: [id])
+  company  DimCompany  @relation(fields: [companyId], references: [id])
+  customer DimCustomer @relation(fields: [customerId], references: [id])
+  product  DimProduct  @relation(fields: [productId], references: [id])
+
+  @@index([companyId])
+  @@map("dw_fact_sales")
+}
+
+model FactFinancial {
+  id        String @id @default(uuid())
+  dateId    Int
+  companyId String
+
+  revenue   Decimal @db.Decimal(15, 2)
+  expenses  Decimal @db.Decimal(15, 2)
+  netIncome Decimal @db.Decimal(15, 2)
+  cashFlow  Decimal @db.Decimal(15, 2)
+
+  date    DimDate    @relation(fields: [dateId], references: [id])
+  company DimCompany @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
+  @@map("dw_fact_financials")
+}
+
+// --- MACHINE LEARNING & AI ---
+
+model FeatureStore {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  entityType  String // CUSTOMER, PRODUCT, COMPANY
+  dataType    String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("ai_feature_store")
+}
+
+model ModelRegistry {
+  id            String   @id @default(uuid())
+  name          String   @unique
+  version       String
+  algorithm     String // RANDOM_FOREST, LSTM, XGBOOST
+  accuracyScore Decimal  @db.Decimal(5, 4)
+  isActive      Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  predictions PredictionLog[]
+
+  @@map("ai_model_registry")
+}
+
+model PredictionLog {
+  id              String   @id @default(uuid())
+  modelId         String
+  companyId       String
+  entityId        String // Qual entidade recebeu a predicao (ex: CustomerId para Churn)
+  predictionValue String
+  confidence      Decimal  @db.Decimal(5, 4)
+  createdAt       DateTime @default(now())
+
+  model   ModelRegistry @relation(fields: [modelId], references: [id])
+  company Company       @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
+  @@map("ai_prediction_logs")
+}
+
+// --- DATA GOVERNANCE ---
+
+model DataCatalog {
+  id              String  @id @default(uuid())
+  tableName       String  @unique
+  description     String
+  classification  String // PUBLIC, INTERNAL, CONFIDENTIAL, RESTRICTED
+  owner           String
+  isLgpdSensitive Boolean @default(false)
+
+  @@map("gov_data_catalog")
+}
+
+// ─────────────────────────────────────────────────────────────
+// FASE 26A: PLATAFORMA ENTERPRISE (Public API, Plugins, White Label)
+// ─────────────────────────────────────────────────────────────
+
+// --- SDK ---
+
+model SdkMetadata {
+  id         String   @id @default(uuid())
+  language   String // node, python, go, java
+  version    String
+  publishUrl String
+  hash       String
+  createdAt  DateTime @default(now())
+
+  @@map("ent_sdk_metadata")
+}
+
+// --- PLUGIN MARKETPLACE ---
+
+model Plugin {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  developer   String
+  description String   @db.Text
+  category    String // PAYMENT, FISCAL, CRM, ECOMMERCE
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  versions      PluginVersion[]
+  installations PluginInstallation[]
+
+  @@map("ent_plugins")
+}
+
+model PluginVersion {
+  id          String   @id @default(uuid())
+  pluginId    String
+  version     String
+  codeUrl     String // ZIP location or Docker Image
+  signature   String // For Digital Signature
+  isPublished Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  plugin      Plugin             @relation(fields: [pluginId], references: [id], onDelete: Cascade)
+  permissions PluginPermission[]
+
+  @@map("ent_plugin_versions")
+}
+
+model PluginPermission {
+  id        String @id @default(uuid())
+  versionId String
+  resource  String // E.g. 'sales', 'customers'
+  action    String // READ, WRITE, DELETE
+
+  version PluginVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+
+  @@map("ent_plugin_permissions")
+}
+
+model PluginInstallation {
+  id            String   @id @default(uuid())
+  pluginId      String
+  companyId     String
+  version       String
+  status        String // INSTALLED, SANDBOX, ERROR, DISABLED
+  configuration String?  @db.Text // JSON config
+  installedAt   DateTime @default(now())
+
+  plugin  Plugin  @relation(fields: [pluginId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@map("ent_plugin_installations")
+}
+
+// --- WHITE LABEL ---
+
+model WhiteLabelConfig {
+  id             String  @id @default(uuid())
+  companyId      String  @unique
+  customDomain   String? @unique
+  brandName      String?
+  logoUrl        String?
+  faviconUrl     String?
+  primaryColor   String?
+  secondaryColor String?
+  language       String  @default("pt-BR")
+  emailTemplate  String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@map("ent_white_label_configs")
+}
+
+// ─────────────────────────────────────────────────────────────
+// FASE 26B: PLATAFORMA GLOBAL ENTERPRISE
+// ─────────────────────────────────────────────────────────────
+
+// --- MULTI-REGION & INFRASTRUCTURE ---
+
+model Region {
+  id       String  @id @default(uuid())
+  code     String  @unique // us-east-1, sa-east-1
+  name     String
+  isActive Boolean @default(true)
+
+  availabilityZones AvailabilityZone[]
+  deployments       RegionalDeployment[]
+  edgeLocations     EdgeLocation[]
+
+  @@map("glb_regions")
+}
+
+model AvailabilityZone {
+  id       String @id @default(uuid())
+  regionId String
+  code     String // us-east-1a
+  status   String // OPERATIONAL, DEGRADED, DOWN
+
+  region Region @relation(fields: [regionId], references: [id], onDelete: Cascade)
+
+  @@map("glb_availability_zones")
+}
+
+model RegionalDeployment {
+  id         String   @id @default(uuid())
+  companyId  String
+  regionId   String
+  isPrimary  Boolean  @default(false)
+  status     String // ACTIVE, PROVISIONING, FAILED
+  deployedAt DateTime @default(now())
+
+  company          Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  region           Region           @relation(fields: [regionId], references: [id], onDelete: Cascade)
+  failoverPolicies FailoverPolicy[]
+
+  @@index([companyId])
+  @@map("glb_regional_deployments")
+}
+
+model EdgeLocation {
+  id          String  @id @default(uuid())
+  regionId    String
+  city        String
+  ipAddress   String
+  isCdnActive Boolean @default(true)
+
+  region Region @relation(fields: [regionId], references: [id], onDelete: Cascade)
+
+  @@map("glb_edge_locations")
+}
+
+model FailoverPolicy {
+  id               String  @id @default(uuid())
+  deploymentId     String
+  targetRegion     String // Code of the backup region
+  triggerThreshold Int // Errors per minute to trigger
+  isActive         Boolean @default(true)
+
+  deployment RegionalDeployment @relation(fields: [deploymentId], references: [id], onDelete: Cascade)
+
+  @@map("glb_failover_policies")
+}
+
+// --- MULTI-COUNTRY & LOCALIZATION ---
+
+model CountryConfiguration {
+  id           String  @id @default(uuid())
+  companyId    String
+  countryCode  String // BR, US, PT
+  currencyCode String // BRL, USD, EUR
+  timezone     String
+  isActive     Boolean @default(true)
+
+  company          Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  localizationPack LocalizationPack?
+
+  @@index([companyId])
+  @@map("glb_country_configs")
+}
+
+model LocalizationPack {
+  id                 String @id @default(uuid())
+  countryConfigId    String @unique
+  taxLocalization    String @db.Text // JSON with tax rules
+  fiscalLocalization String @db.Text // JSON with fiscal endpoints and requirements
+  translationJson    String @db.Text // JSON with string overrides
+
+  countryConfig CountryConfiguration @relation(fields: [countryConfigId], references: [id], onDelete: Cascade)
+
+  @@map("glb_localization_packs")
+}
+
+// --- SECURITY & COMPLIANCE ---
+
+model KmsIntegration {
+  id              String    @id @default(uuid())
+  companyId       String    @unique
+  provider        String // AWS_KMS, AZURE_KV, GOOGLE_KMS
+  keyAlias        String
+  encryptedSecret String
+  rotationDays    Int       @default(90)
+  lastRotatedAt   DateTime?
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@map("glb_kms_integrations")
+}
+
+model RegionalAudit {
+  id               String   @id @default(uuid())
+  companyId        String
+  regionCode       String
+  action           String
+  complianceStatus String // COMPLIANT, NON_COMPLIANT
+  details          String   @db.Text
+  createdAt        DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@map("glb_regional_audits")
+}
+
+// ─────────────────────────────────────────────────────────────
+// FASE 26C: ECOSSISTEMA ABERTO ENTERPRISE
+// ─────────────────────────────────────────────────────────────
+
+// --- DEVELOPER PORTAL ---
+
+model Developer {
+  id        String   @id @default(uuid())
+  companyId String
+  name      String
+  email     String   @unique
+  status    String // ACTIVE, SUSPENDED
+  createdAt DateTime @default(now())
+
+  company      Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  applications Application[]
+
+  @@index([companyId])
+  @@map("open_developers")
+}
+
+model Application {
+  id          String  @id @default(uuid())
+  developerId String
+  name        String
+  description String?
+  homepageUrl String?
+  callbackUrl String?
+  status      String // ACTIVE, INACTIVE
+
+  developer        Developer         @relation(fields: [developerId], references: [id], onDelete: Cascade)
+  oauthClients     OAuthClient[]
+  apiSubscriptions ApiSubscription[]
+
+  @@map("open_applications")
+}
+
+model OAuthClient {
+  id            String   @id @default(uuid())
+  applicationId String
+  clientId      String   @unique
+  clientSecret  String
+  grantTypes    String // JSON Array
+  createdAt     DateTime @default(now())
+
+  application    Application          @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  authorizations OAuthAuthorization[]
+  tokens         OAuthToken[]
+
+  @@map("open_oauth_clients")
+}
+
+model OAuthScope {
+  id          String  @id @default(uuid())
+  name        String  @unique
+  description String
+  isDefault   Boolean @default(false)
+
+  @@map("open_oauth_scopes")
+}
+
+model OAuthAuthorization {
+  id        String   @id @default(uuid())
+  clientId  String
+  userId    String // the user who authorized
+  scopes    String // JSON Array
+  createdAt DateTime @default(now())
+
+  client OAuthClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@map("open_oauth_authorizations")
+}
+
+model OAuthToken {
+  id          String   @id @default(uuid())
+  clientId    String
+  accessToken String   @unique
+  scopes      String // JSON Array
+  expiresAt   DateTime
+  isRevoked   Boolean  @default(false)
+
+  client        OAuthClient       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  refreshTokens EntRefreshToken[]
+
+  @@map("open_oauth_tokens")
+}
+
+model EntRefreshToken {
+  id           String   @id @default(uuid())
+  tokenId      String
+  refreshToken String   @unique
+  expiresAt    DateTime
+  isRevoked    Boolean  @default(false)
+
+  token OAuthToken @relation(fields: [tokenId], references: [id], onDelete: Cascade)
+
+  @@map("open_ent_refresh_tokens")
+}
+
+// --- API MANAGEMENT ---
+
+model ApiProduct {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  isPublic    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  subscriptions ApiSubscription[]
+  quotas        ApiQuota[]
+
+  @@map("open_api_products")
+}
+
+model ApiSubscription {
+  id            String @id @default(uuid())
+  applicationId String
+  productId     String
+  status        String // ACTIVE, CANCELLED
+
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  product     ApiProduct  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  usages      ApiUsage[]
+
+  @@map("open_api_subscriptions")
+}
+
+model ApiUsage {
+  id             String   @id @default(uuid())
+  subscriptionId String
+  endpoint       String
+  method         String
+  statusCode     Int
+  latencyMs      Int
+  timestamp      DateTime @default(now())
+
+  subscription ApiSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@map("open_api_usages")
+}
+
+model ApiQuota {
+  id        String @id @default(uuid())
+  productId String
+  limit     Int
+  period    String // MONTHLY, DAILY
+
+  product ApiProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("open_api_quotas")
+}
+
+model ApiRateLimit {
+  id             String @id @default(uuid())
+  routePattern   String @unique
+  requestsPerMin Int
+
+  @@map("open_api_rate_limits")
+}
+
+model ApiAnalytics {
+  id            String   @id @default(uuid())
+  timestamp     DateTime @default(now())
+  totalRequests Int
+  errorCount    Int
+  avgLatencyMs  Float
+
+  @@map("open_api_analytics")
+}
+
+// --- WEBHOOKS ENTERPRISE ---
+
+model EntWebhookEndpoint {
+  id        String  @id @default(uuid())
+  companyId String
+  url       String
+  secret    String
+  isActive  Boolean @default(true)
+
+  company       Company                  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  subscriptions EntWebhookSubscription[]
+  deliveries    EntWebhookDelivery[]
+
+  @@index([companyId])
+  @@map("open_ent_webhook_endpoints")
+}
+
+model EntWebhookSubscription {
+  id         String @id @default(uuid())
+  endpointId String
+  eventTypes String // JSON Array of events
+
+  endpoint EntWebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+
+  @@map("open_ent_webhook_subscriptions")
+}
+
+model EntWebhookDelivery {
+  id          String    @id @default(uuid())
+  endpointId  String
+  payload     String    @db.Text
+  statusCode  Int?
+  status      String // PENDING, SUCCESS, FAILED
+  deliveredAt DateTime?
+
+  endpoint      EntWebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+  retryPolicies RetryPolicy[]
+  deadLetters   DeadLetterQueue[]
+
+  @@map("open_ent_webhook_deliveries")
+}
+
+model RetryPolicy {
+  id           String    @id @default(uuid())
+  deliveryId   String
+  attemptCount Int       @default(0)
+  maxAttempts  Int       @default(5)
+  nextRetryAt  DateTime?
+
+  delivery EntWebhookDelivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+
+  @@map("open_retry_policies")
+}
+
+model DeadLetterQueue {
+  id            String   @id @default(uuid())
+  deliveryId    String
+  failureReason String   @db.Text
+  loggedAt      DateTime @default(now())
+
+  delivery EntWebhookDelivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+
+  @@map("open_dead_letter_queues")
+}
+
+// --- SDK MANAGEMENT ---
+
+model SDKRelease {
+  id          String   @id @default(uuid())
+  language    String
+  version     String
+  publishedAt DateTime @default(now())
+
+  artifacts      SDKArtifact[]
+  documentations SDKDocumentation[]
+  examples       SDKExample[]
+
+  @@map("open_sdk_releases")
+}
+
+model SDKArtifact {
+  id        String @id @default(uuid())
+  releaseId String
+  url       String
+  checksum  String
+
+  release SDKRelease @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+
+  @@map("open_sdk_artifacts")
+}
+
+model SDKDocumentation {
+  id         String @id @default(uuid())
+  releaseId  String
+  contentUrl String
+
+  release SDKRelease @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+
+  @@map("open_sdk_documentations")
+}
+
+model SDKExample {
+  id          String @id @default(uuid())
+  releaseId   String
+  title       String
+  codeSnippet String @db.Text
+
+  release SDKRelease @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+
+  @@map("open_sdk_examples")
+}
+
+// --- MARKETPLACE EVOLUTION ---
+
+model PluginMarketplaceCategory {
+  id          String  @id @default(uuid())
+  name        String  @unique
+  description String?
+
+  @@map("open_plugin_categories")
+}
+
+model PluginReview {
+  id        String   @id @default(uuid())
+  pluginId  String
+  userId    String
+  rating    Int
+  comment   String?  @db.Text
+  createdAt DateTime @default(now())
+
+  @@map("open_plugin_reviews")
+}
+
+model PluginLicense {
+  id         String    @id @default(uuid())
+  pluginId   String
+  companyId  String
+  licenseKey String    @unique
+  expiresAt  DateTime?
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@map("open_plugin_licenses")
+}
+
+model PluginPurchase {
+  id          String   @id @default(uuid())
+  pluginId    String
+  companyId   String
+  amount      Decimal  @db.Decimal(10, 2)
+  purchasedAt DateTime @default(now())
+
+  company  Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  billings PluginBilling[]
+
+  @@index([companyId])
+  @@map("open_plugin_purchases")
+}
+
+model PluginBilling {
+  id         String @id @default(uuid())
+  purchaseId String
+  invoiceId  String
+  status     String // PAID, PENDING, FAILED
+
+  purchase PluginPurchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+
+  @@map("open_plugin_billings")
+}
+
+// ─────────────────────────────────────────────────────────────
+// FASE 26D: OPERAÇÃO GLOBAL ENTERPRISE
+// ─────────────────────────────────────────────────────────────
+
+// --- IDENTITY FEDERATION ---
+
+model OpSamlProvider {
+  id          String  @id @default(uuid())
+  companyId   String
+  entityId    String  @unique
+  ssoUrl      String
+  certificate String  @db.Text
+  isActive    Boolean @default(true)
+  company     Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@map("op_saml_providers")
+}
+
+model OpOidcProvider {
+  id           String  @id @default(uuid())
+  companyId    String
+  issuer       String
+  clientId     String
+  clientSecret String
+  discoveryUrl String
+  isActive     Boolean @default(true)
+  company      Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@map("op_oidc_providers")
+}
+
+model OpLdapConnector {
+  id           String  @id @default(uuid())
+  companyId    String
+  serverUrl    String
+  baseDn       String
+  bindDn       String
+  bindPassword String
+  isActive     Boolean @default(true)
+  company      Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@map("op_ldap_connectors")
+}
+
+model OpAdConnector {
+  id               String  @id @default(uuid())
+  companyId        String
+  domain           String
+  domainController String
+  serviceAccount   String
+  servicePassword  String
+  isActive         Boolean @default(true)
+  company          Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@map("op_ad_connectors")
+}
+
+model OpScimProvisioning {
+  id            String  @id @default(uuid())
+  companyId     String
+  endpoint      String
+  bearerToken   String
+  syncFrequency String // REALTIME, HOURLY, DAILY
+  company       Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@map("op_scim_provisionings")
+}
+
+model OpGroupSync {
+  id              String  @id @default(uuid())
+  companyId       String
+  externalGroupId String
+  internalRoleId  String
+  company         Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@map("op_group_syncs")
+}
+
+// --- TENANT MANAGEMENT ---
+
+model OpTenantIsolationPolicy {
+  id             String  @id @default(uuid())
+  companyId      String  @unique
+  isolationLevel String // LOGICAL, PHYSICAL_DB, PHYSICAL_SERVER
+  dedicatedDbUrl String?
+  company        Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@map("op_tenant_isolation_policies")
+}
+
+model OpResourceQuota {
+  id             String  @id @default(uuid())
+  companyId      String  @unique
+  maxUsers       Int     @default(10)
+  maxStorageGb   Int     @default(5)
+  maxApiRequests Int     @default(10000)
+  company        Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@map("op_resource_quotas")
+}
+
+model OpBillingPolicy {
+  id           String  @id @default(uuid())
+  companyId    String  @unique
+  planName     String
+  billingCycle String // MONTHLY, ANNUALLY
+  autoRenew    Boolean @default(true)
+  company      Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@map("op_billing_policies")
+}
+
+model OpTenantMigration {
+  id           String    @id @default(uuid())
+  companyId    String
+  sourceRegion String
+  targetRegion String
+  status       String // PENDING, MIGRATING, COMPLETED, FAILED
+  startedAt    DateTime  @default(now())
+  completedAt  DateTime?
+  company      Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@map("op_tenant_migrations")
+}
+
+model OpTenantClone {
+  id              String   @id @default(uuid())
+  sourceCompanyId String
+  targetCompanyId String
+  status          String // IN_PROGRESS, SUCCESS
+  createdAt       DateTime @default(now())
+
+  @@map("op_tenant_clones")
+}
+
+model OpTenantBackup {
+  id         String   @id @default(uuid())
+  companyId  String
+  storageUrl String
+  sizeBytes  BigInt
+  status     String // SUCCESS, FAILED
+  createdAt  DateTime @default(now())
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@map("op_tenant_backups")
+}
+
+model OpTenantRestore {
+  id         String   @id @default(uuid())
+  backupId   String
+  companyId  String
+  status     String // RESTORING, SUCCESS
+  restoredAt DateTime @default(now())
+
+  @@index([companyId])
+  @@map("op_tenant_restores")
+}
+
+// --- GLOBAL INFRASTRUCTURE ---
+
+model OpCrossRegionReplication {
+  id            String  @id @default(uuid())
+  companyId     String
+  sourceRegion  String
+  targetRegion  String
+  syncLatencyMs Int
+  status        String // HEALTHY, DEGRADED
+  company       Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@map("op_cross_region_replications")
+}
+
+model OpReadReplica {
+  id           String  @id @default(uuid())
+  region       String
+  dbUrl        String
+  isPromotable Boolean @default(false)
+  status       String // ACTIVE, SYNCING
+
+  @@map("op_read_replicas")
+}
+
+model OpDisasterRecovery {
+  id               String    @id @default(uuid())
+  companyId        String
+  primaryRegion    String
+  standbyRegion    String
+  lastFailoverTest DateTime?
+  company          Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@map("op_disaster_recoveries")
+}
+
+model OpGeoRouting {
+  id           String @id @default(uuid())
+  ipRangeStart String
+  ipRangeEnd   String
+  targetRegion String
+
+  @@map("op_geo_routings")
+}
+
+model OpMultiCdn {
+  id           String  @id @default(uuid())
+  providerName String // CLOUDFLARE, AWS_CLOUDFRONT, FASTLY
+  cname        String
+  isActive     Boolean @default(true)
+
+  @@map("op_multi_cdns")
+}
+
+model OpTrafficManager {
+  id            String @id @default(uuid())
+  endpoint      String
+  weightRegionA Int    @default(50)
+  weightRegionB Int    @default(50)
+  status        String // ACTIVE
+
+  @@map("op_traffic_managers")
+}
+
+// --- GOVERNANCE ---
+
+model OpDataClassification {
+  id               String  @id @default(uuid())
+  companyId        String
+  dataType         String // PII, FINANCIAL, PUBLIC
+  sensitivityLevel Int // 1 to 5
+  company          Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@map("op_data_classifications")
+}
+
+model OpRetentionPolicy {
+  id            String  @id @default(uuid())
+  companyId     String
+  dataType      String
+  retentionDays Int
+  autoDelete    Boolean @default(true)
+  company       Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@map("op_retention_policies")
+}
+
+model OpLegalHold {
+  id         String    @id @default(uuid())
+  companyId  String
+  userId     String
+  reason     String    @db.Text
+  placedAt   DateTime  @default(now())
+  releasedAt DateTime?
+  company    Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@map("op_legal_holds")
+}
+
+model OpPrivacyEngine {
+  id        String  @id @default(uuid())
+  companyId String  @unique
+  framework String // GDPR, LGPD, CCPA
+  dpoName   String?
+  dpoEmail  String?
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@map("op_privacy_engines")
+}
+
+model OpConsentManagement {
+  id          String   @id @default(uuid())
+  userId      String
+  consentType String // MARKETING, TRACKING
+  isGranted   Boolean
+  timestamp   DateTime @default(now())
+
+  @@map("op_consent_managements")
+}
+
+model OpDataExport {
+  id          String    @id @default(uuid())
+  userId      String
+  status      String // PROCESSING, READY
+  downloadUrl String?
+  expiresAt   DateTime?
+
+  @@map("op_data_exports")
+}
+
+model OpRightToBeForgotten {
+  id          String    @id @default(uuid())
+  userId      String    @unique
+  status      String // REQUESTED, PURGED
+  requestedAt DateTime  @default(now())
+  purgedAt    DateTime?
+
+  @@map("op_right_to_be_forgotten")
+}
+
+// --- SECURITY CENTER ---
+
+model OpThreatDetection {
+  id         String   @id @default(uuid())
+  companyId  String
+  threatType String // BRUTE_FORCE, SQL_INJECTION
+  sourceIp   String
+  severity   String // LOW, MEDIUM, HIGH, CRITICAL
+  detectedAt DateTime @default(now())
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@map("op_threat_detections")
+}
+
+model OpRiskScoring {
+  id               String   @id @default(uuid())
+  userId           String   @unique
+  score            Int // 0 to 100
+  lastCalculatedAt DateTime @default(now())
+
+  @@map("op_risk_scorings")
+}
+
+model OpSecretRotation {
+  id             String   @id @default(uuid())
+  secretName     String   @unique
+  lastRotatedAt  DateTime
+  nextRotationAt DateTime
+  status         String // SCHEDULED, ROTATING, COMPLETED
+
+  @@map("op_secret_rotations")
+}
+
+model OpCertificateRotation {
+  id          String   @id @default(uuid())
+  domain      String   @unique
+  expiresAt   DateTime
+  isAutoRenew Boolean  @default(true)
+
+  @@map("op_certificate_rotations")
+}
+
+model OpSecurityPolicy {
+  id         String  @id @default(uuid())
+  companyId  String
+  policyName String
+  enforced   Boolean @default(true)
+  company    Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@map("op_security_policies")
+}
+
+// --- PLATFORM OPERATIONS ---
+
+model OpFeatureRollout {
+  id             String  @id @default(uuid())
+  featureKey     String  @unique
+  rolloutPercent Int // 0 to 100
+  isActive       Boolean @default(false)
+
+  @@map("op_feature_rollouts")
+}
+
+model OpCanaryDeployment {
+  id             String @id @default(uuid())
+  serviceName    String
+  version        String
+  trafficPercent Int
+  status         String // DEPLOYING, ACTIVE, ROLLED_BACK
+
+  @@map("op_canary_deployments")
+}
+
+model OpBlueGreenDeployment {
+  id          String   @id @default(uuid())
+  serviceName String
+  activeColor String // BLUE, GREEN
+  swappedAt   DateTime @default(now())
+
+  @@map("op_blue_green_deployments")
+}
+
+model OpReleaseChannel {
+  id        String  @id @default(uuid())
+  companyId String  @unique
+  channel   String // ALPHA, BETA, STABLE
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@map("op_release_channels")
+}
+
+model OpMaintenanceWindow {
+  id          String   @id @default(uuid())
+  startTime   DateTime
+  endTime     DateTime
+  description String
+  isEmergency Boolean  @default(false)
+
+  @@map("op_maintenance_windows")
+}
+
+model OpScheduledOperation {
+  id             String    @id @default(uuid())
+  operationType  String // BACKUP, INDEX_REBUILD
+  cronExpression String
+  lastRunAt      DateTime?
+  nextRunAt      DateTime?
+
+  @@map("op_scheduled_operations")
+}
+
+// ====================================================================
+// FASE 28 — DATA PRIVACY & COMPLIANCE (LGPD/GDPR)
+// ====================================================================
+
+model DataSubjectRequest {
+  id             String    @id @default(uuid())
+  companyId      String
+  requesterName  String
+  requesterEmail String
+  requestType    String // ACCESS, DELETION, EXPORT, RECTIFICATION
+  status         String // PENDING, IN_PROGRESS, COMPLETED, REJECTED
+  details        String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  @@index([companyId])
+}
+
+model ConsentRecord {
+  id        String    @id @default(uuid())
+  companyId String
+  userId    String
+  purpose   String
+  granted   Boolean
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([companyId])
+  @@index([userId])
+}
+
+model PrivacyPolicy {
+  id        String    @id @default(uuid())
+  companyId String
+  version   String
+  content   String
+  active    Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([companyId])
+}

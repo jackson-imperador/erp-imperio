@@ -1,0 +1,19 @@
+# Império ERP — Docker Compose (Produção)
+# Este arquivo define os serviços de produção
+version: '3.9'
+
+services:
+  # Placeholder — será implementado em fase futura
+  postgres:
+    image: postgres:16-alpine
+    # configuração será adicionada na fase de banco de dados
+
+  redis:
+    image: redis:7-alpine
+    # configuração será adicionada na fase de banco de dados
+
+  # frontend:
+  #   implementado na fase de frontend
+
+  # backend:
+  #   implementado na fase de backend

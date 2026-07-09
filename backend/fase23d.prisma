@@ -1,0 +1,293 @@
+// ─────────────────────────────────────────────────────────────
+// ENUMS FOR FASE 23D
+// ─────────────────────────────────────────────────────────────
+
+enum ReportStatus {
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum WorkflowStatus {
+  ACTIVE
+  COMPLETED
+  FAILED
+}
+
+// ─────────────────────────────────────────────────────────────
+// NOTIFICATION MODULE EXTENSIONS
+// ─────────────────────────────────────────────────────────────
+
+model NotificationPreference {
+  id        String   @id @default(uuid())
+  companyId String
+  userId    String
+  email     Boolean  @default(true)
+  sms       Boolean  @default(false)
+  push      Boolean  @default(true)
+  inApp     Boolean  @default(true)
+  updatedAt DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@unique([companyId, userId])
+  @@map("notification_preferences")
+}
+
+model NotificationTemplate {
+  id        String   @id @default(uuid())
+  companyId String
+  code      String
+  name      String
+  subject   String?
+  body      String   
+  type      String   // Since NotificationType enum might not be what we expect, using String to avoid conflict
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@unique([companyId, code, type])
+  @@map("notification_templates")
+}
+
+model NotificationQueue {
+  id             String             @id @default(uuid())
+  companyId      String
+  userId         String?
+  type           String             // Enum fallback
+  status         String             @default("PENDING") // Enum fallback
+  recipient      String             
+  subject        String?
+  body           String
+  metadata       Json?
+  retryCount     Int                @default(0)
+  errorMessage   String?
+  scheduledFor   DateTime?
+  sentAt         DateTime?
+  createdAt      DateTime           @default(now())
+
+  company Company @relation(fields: [companyId], references: [id])
+  user    User?   @relation(fields: [userId], references: [id])
+
+  @@map("notification_queue")
+}
+
+// ─────────────────────────────────────────────────────────────
+// AUDIT MODULE EXTENSIONS
+// ─────────────────────────────────────────────────────────────
+
+model SecurityEvent {
+  id        String   @id @default(uuid())
+  companyId String?
+  userId    String?
+  eventType String   
+  ipAddress String?
+  userAgent String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  company Company? @relation(fields: [companyId], references: [id])
+  user    User?    @relation(fields: [userId], references: [id])
+
+  @@map("security_events")
+}
+
+model UserActivity {
+  id        String   @id @default(uuid())
+  companyId String?
+  userId    String?
+  action    String   
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  company Company? @relation(fields: [companyId], references: [id])
+  user    User?    @relation(fields: [userId], references: [id])
+
+  @@map("user_activities")
+}
+
+// ─────────────────────────────────────────────────────────────
+// REPORT MODULE
+// ─────────────────────────────────────────────────────────────
+
+model ReportConfig {
+  id          String   @id @default(uuid())
+  companyId   String
+  code        String
+  name        String
+  description String?
+  queryMap    Json     
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company    Company @relation(fields: [companyId], references: [id])
+  executions ReportExecution[]
+
+  @@unique([companyId, code])
+  @@map("report_configs")
+}
+
+model ReportExecution {
+  id             String       @id @default(uuid())
+  companyId      String
+  reportConfigId String
+  requestedBy    String
+  status         ReportStatus @default(QUEUED)
+  parameters     Json?
+  fileUrl        String?
+  errorMessage   String?
+  startedAt      DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime     @default(now())
+
+  company      Company      @relation(fields: [companyId], references: [id])
+  reportConfig ReportConfig @relation(fields: [reportConfigId], references: [id])
+  user         User         @relation(fields: [requestedBy], references: [id])
+
+  @@map("report_executions")
+}
+
+// ─────────────────────────────────────────────────────────────
+// INTEGRATION MODULE
+// ─────────────────────────────────────────────────────────────
+
+model WebhookEndpoint {
+  id          String   @id @default(uuid())
+  companyId   String
+  url         String
+  secret      String?
+  events      String[] 
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company    Company @relation(fields: [companyId], references: [id])
+  deliveries WebhookDelivery[]
+
+  @@map("webhook_endpoints")
+}
+
+model WebhookDelivery {
+  id                String          @id @default(uuid())
+  companyId         String
+  webhookEndpointId String
+  eventId           String
+  eventName         String
+  payload           Json
+  status            String          
+  statusCode        Int?
+  responseBody      String?
+  retryCount        Int             @default(0)
+  createdAt         DateTime        @default(now())
+
+  company         Company         @relation(fields: [companyId], references: [id])
+  webhookEndpoint WebhookEndpoint @relation(fields: [webhookEndpointId], references: [id])
+
+  @@map("webhook_deliveries")
+}
+
+model ApiKey {
+  id        String    @id @default(uuid())
+  companyId String
+  name      String
+  keyHash   String
+  scopes    String[]  
+  expiresAt DateTime?
+  lastUsed  DateTime?
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@map("api_keys")
+}
+
+// ─────────────────────────────────────────────────────────────
+// WORKFLOW ENGINE
+// ─────────────────────────────────────────────────────────────
+
+model WorkflowDefinition {
+  id          String   @id @default(uuid())
+  companyId   String
+  code        String
+  name        String
+  entityType  String   
+  triggerType String   
+  steps       Json     
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company   Company @relation(fields: [companyId], references: [id])
+  instances WorkflowInstance[]
+  rules     BusinessRule[]
+
+  @@unique([companyId, code])
+  @@map("workflow_definitions")
+}
+
+model BusinessRule {
+  id                   String             @id @default(uuid())
+  companyId            String
+  workflowDefinitionId String
+  name                 String
+  conditionExpression  String             
+  isActive             Boolean            @default(true)
+  createdAt            DateTime           @default(now())
+
+  company            Company            @relation(fields: [companyId], references: [id])
+  workflowDefinition WorkflowDefinition @relation(fields: [workflowDefinitionId], references: [id], onDelete: Cascade)
+
+  @@map("business_rules")
+}
+
+model WorkflowInstance {
+  id                   String         @id @default(uuid())
+  companyId            String
+  workflowDefinitionId String
+  entityId             String
+  entityType           String
+  status               WorkflowStatus @default(ACTIVE)
+  currentStepIndex     Int            @default(0)
+  startedBy            String?
+  completedAt          DateTime?
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+
+  company            Company            @relation(fields: [companyId], references: [id])
+  workflowDefinition WorkflowDefinition @relation(fields: [workflowDefinitionId], references: [id])
+  startedByUser      User?              @relation(fields: [startedBy], references: [id])
+  approvalRequests   ApprovalRequest[]
+
+  @@map("workflow_instances")
+}
+
+model ApprovalRequest {
+  id                 String         @id @default(uuid())
+  companyId          String
+  workflowInstanceId String
+  approverUserId     String?
+  approverRoleId     String?        
+  status             ApprovalStatus @default(PENDING)
+  comments           String?
+  actionTakenAt      DateTime?
+  createdAt          DateTime       @default(now())
+
+  company          Company          @relation(fields: [companyId], references: [id])
+  workflowInstance WorkflowInstance @relation(fields: [workflowInstanceId], references: [id], onDelete: Cascade)
+  approverUser     User?            @relation(fields: [approverUserId], references: [id])
+
+  @@map("approval_requests")
+}

@@ -1,0 +1,18 @@
+# Império ERP — CD Pipeline
+# Deploy automático para produção
+name: CD
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  # Jobs serão configurados na fase de infraestrutura
+  placeholder:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Placeholder
+        run: echo "CD pipeline - a ser configurado"

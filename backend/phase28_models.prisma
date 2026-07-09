@@ -1,0 +1,47 @@
+// ====================================================================
+// FASE 28 — DATA PRIVACY & COMPLIANCE (LGPD/GDPR)
+// ====================================================================
+
+model DataSubjectRequest {
+  id             String   @id @default(uuid())
+  companyId      String
+  requesterName  String
+  requesterEmail String
+  requestType    String   // ACCESS, DELETION, EXPORT, RECTIFICATION
+  status         String   // PENDING, IN_PROGRESS, COMPLETED, REJECTED
+  details        String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  deletedAt      DateTime?
+
+  @@index([companyId])
+}
+
+model ConsentRecord {
+  id          String   @id @default(uuid())
+  companyId   String
+  userId      String
+  purpose     String
+  granted     Boolean
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@index([companyId])
+  @@index([userId])
+}
+
+model PrivacyPolicy {
+  id        String   @id @default(uuid())
+  companyId String
+  version   String
+  content   String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  @@index([companyId])
+}
