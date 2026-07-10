@@ -9,7 +9,7 @@ export class ResendEmailProvider implements IEmailProvider {
   private readonly resend: Resend;
 
   constructor(private readonly configService: ConfigService) {
-    const apiKey = this.configService.get<string>('RESEND_API_KEY') || '';
+    const apiKey = this.configService.get<string>('RESEND_API_KEY') || 're_mock123_not_for_prod';
     this.resend = new Resend(apiKey);
   }
 

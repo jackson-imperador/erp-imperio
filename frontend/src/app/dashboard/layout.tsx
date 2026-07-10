@@ -1,7 +1,7 @@
 
 'use client';
 
-import { ReactNode, useEffect } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { Sidebar } from '@/components/layout/Sidebar';
@@ -10,14 +10,19 @@ import { Header } from '@/components/layout/Header';
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const { token, user } = useAuthStore();
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    if (!token || !user) {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (mounted && (!token || !user)) {
       router.push('/login');
     }
-  }, [token, user, router]);
+  }, [token, user, router, mounted]);
 
-  if (!token) return null; // Prevent flash
+  if (!mounted || !token) return null; // Prevent flash during hydration
 
   return (
     <div className="flex h-screen bg-zinc-50 dark:bg-zinc-950">

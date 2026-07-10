@@ -40,6 +40,11 @@ export const pdvService = {
     }
   },
 
+  async createDrawer(companyId: string, payload: Partial<CashDrawer>): Promise<{ id: string }> {
+    const { data } = await api.post(`/companies/${companyId}${BASE}/drawers`, payload);
+    return data.data || data;
+  },
+
   async openDrawer(companyId: string, drawerId: string, initialBalance: number): Promise<void> {
     await api.post(`/companies/${companyId}${BASE}/drawers/${drawerId}/open`, { initialBalance });
   },

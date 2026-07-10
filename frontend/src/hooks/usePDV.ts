@@ -58,6 +58,11 @@ export function usePdvMutations() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: [QK_PDV_DRAWERS] }),
   });
 
+  const createDrawer = useMutation({
+    mutationFn: (payload: any) => pdvService.createDrawer(companyId, payload),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [QK_PDV_DRAWERS] }),
+  });
+
   const processSale = useMutation({
     mutationFn: (sale: Omit<PosSale, 'id' | 'createdAt' | 'companyId'>) => pdvService.processSale(companyId, { ...sale, companyId }),
   });
@@ -73,6 +78,7 @@ export function usePdvMutations() {
   return {
     openDrawer,
     closeDrawer,
+    createDrawer,
     processSale,
     createMovement,
   };

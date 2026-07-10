@@ -1,19 +1,25 @@
-# Império ERP — Docker Compose (Produção)
-# Este arquivo define os serviços de produção
 version: '3.9'
 
 services:
-  # Placeholder — será implementado em fase futura
-  postgres:
-    image: postgres:16-alpine
-    # configuração será adicionada na fase de banco de dados
-
   redis:
     image: redis:7-alpine
-    # configuração será adicionada na fase de banco de dados
+    container_name: imperio_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - imperio_network
 
-  # frontend:
-  #   implementado na fase de frontend
+volumes:
+  redis_data:
 
-  # backend:
-  #   implementado na fase de backend
+networks:
+  imperio_network:
+    driver: bridge

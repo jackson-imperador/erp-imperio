@@ -1,13 +1,40 @@
 'use client';
 
-import { useCashDrawers } from '@/hooks/usePDV';
+import { useState } from 'react';
+import { useCashDrawers, usePdvMutations } from '@/hooks/usePDV';
 import { CashDrawerCard } from '@/components/pdv/PDVWidgets';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Plus } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { toast } from 'sonner';
 
 export default function PdvCaixasPage() {
   const { data: drawers = [], isLoading } = useCashDrawers();
+  const { createDrawer } = usePdvMutations();
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState('');
+  const [operator, setOperator] = useState('');
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) {
+      toast.error('O nome do terminal é obrigatório.');
+      return;
+    }
+    
+    try {
+      await createDrawer.mutateAsync({ name, operatorName: operator, status: 'CLOSED', initialBalance: 0, currentBalance: 0 });
+      toast.success('Terminal criado com sucesso!');
+      setOpen(false);
+      setName('');
+      setOperator('');
+    } catch (error) {
+      toast.error('Erro ao criar terminal.');
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -18,7 +45,39 @@ export default function PdvCaixasPage() {
             Monitoramento em tempo real do saldo e status dos gaveteiros
           </p>
         </div>
-        <Button size="sm"><Plus className="w-4 h-4 mr-2" />Novo Terminal</Button>
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger render={<Button size="sm"><Plus className="w-4 h-4 mr-2" />Novo Terminal</Button>} />
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Novo Terminal de Caixa</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleCreate} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Nome do Terminal</Label>
+                <Input 
+                  id="name" 
+                  placeholder="Ex: Caixa 01" 
+                  value={name} 
+                  onChange={e => setName(e.target.value)} 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="operator">Nome do Operador (Opcional)</Label>
+                <Input 
+                  id="operator" 
+                  placeholder="Ex: João Silva" 
+                  value={operator} 
+                  onChange={e => setOperator(e.target.value)} 
+                />
+              </div>
+              <div className="flex justify-end pt-4">
+                <Button type="submit" disabled={createDrawer.isPending}>
+                  {createDrawer.isPending ? 'Criando...' : 'Salvar Terminal'}
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {isLoading ? (

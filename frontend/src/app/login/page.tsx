@@ -7,6 +7,7 @@ import * as z from 'zod';
 import { useAuthStore } from '@/store/authStore';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { authService } from '@/lib/services/auth.service';
 
 const loginSchema = z.object({
   email: z.string().email('E-mail inválido'),
@@ -27,12 +28,27 @@ export default function LoginPage() {
   const onSubmit = async (data: LoginForm) => {
     setLoading(true);
     try {
-      // Mocked login for demonstration since backend might not have this exact user seeded
-      if(data.email === 'admin@imperio.com' && data.password === '123456') {
-         setAuth({ id: '1', name: 'Admin', email: data.email, role: 'ADMIN', companyId: 'comp-1' }, 'mock-jwt-token');
-         router.push('/dashboard');
+      const response = await authService.login({ email: data.email, password: data.password });
+      
+      // Armazenar na persistência do Zustand os dados corretos retornados pela API
+      setAuth(
+        { 
+          id: response.user.id, 
+          name: `${response.user.firstName} ${response.user.lastName}`, 
+          email: response.user.email, 
+          role: response.user.role || 'USER', 
+          companyId: response.user.activeCompanyId || '' 
+        }, 
+        response.accessToken
+      );
+      
+      router.push('/dashboard');
+    } catch (error: any) {
+      console.error('Erro na autenticação:', error);
+      if (error.response?.status === 401 || error.response?.status === 403 || error.response?.status === 404) {
+         alert('Credenciais inválidas. Verifique seu e-mail e senha.');
       } else {
-         alert('Credenciais inválidas. Use admin@imperio.com / 123456');
+         alert('Erro ao conectar com o servidor. Tente novamente mais tarde.');
       }
     } finally {
       setLoading(false);
