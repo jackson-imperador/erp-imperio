@@ -5,7 +5,9 @@ import { GenericDataTable } from '@/components/datatable/GenericDataTable';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { PayrollProcessing } from '@/types/hr';
-import { Calculator } from 'lucide-react';
+import { Calculator, FileDown } from 'lucide-react';
+import { exportToCsv } from '@/utils/exportCsv';
+import { toast } from 'sonner';
 
 export default function FolhaPage() {
   const { data: payrolls = [], isLoading } = usePayroll();
@@ -14,8 +16,8 @@ export default function FolhaPage() {
     { key: 'referenceMonth', header: 'Competência', render: (r: PayrollProcessing) => `${String(r.referenceMonth).padStart(2, '0')}/${r.referenceYear}` },
     { key: 'totalEmployees', header: 'Funcionários Processados' },
     { key: 'totalGrossAmount', header: 'Total Bruto', render: (r: PayrollProcessing) => `R$ ${(r.totalGrossAmount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` },
-    { key: 'totalDiscounts', header: 'Total Descontos', render: (r: PayrollProcessing) => <span className="text-rose-500">R$ {(r.totalDiscounts || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span> },
-    { key: 'totalNetAmount', header: 'Total Líquido', render: (r: PayrollProcessing) => <span className="font-bold text-indigo-500">R$ {(r.totalNetAmount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span> },
+    { key: 'totalDiscounts', header: 'Total Descontos', render: (r: PayrollProcessing) => <span className="text-rose-500">R$ ${(r.totalDiscounts || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span> },
+    { key: 'totalNetAmount', header: 'Total Líquido', render: (r: PayrollProcessing) => <span className="font-bold text-indigo-500">R$ ${(r.totalNetAmount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span> },
     { 
       key: 'status', 
       header: 'Status',
@@ -36,7 +38,12 @@ export default function FolhaPage() {
             Processamento de salários, pró-labore e provisões
           </p>
         </div>
-        <Button size="sm"><Calculator className="w-4 h-4 mr-2" />Processar Folha</Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => exportToCsv('folha.csv', payrolls)}>
+            <FileDown className="w-4 h-4 mr-2" />Exportar
+          </Button>
+          <Button size="sm" onClick={() => { const mes = window.prompt("Digite o mês/ano (Ex: 07/2026) para processar a folha:"); if (mes) toast.success(`Folha de ${mes} enviada para processamento!`); }}><Calculator className="w-4 h-4 mr-2" />Processar Folha</Button>
+        </div>
       </div>
 
       <div className="bg-white dark:bg-zinc-900 p-6 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm">

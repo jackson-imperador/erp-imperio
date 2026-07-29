@@ -224,6 +224,28 @@ export class SalesRepository {
     });
   }
 
+  async cancel(companyId: string, id: string, reason: string) {
+    const order = await this.prisma.saleOrder.findFirst({
+      where: { id, companyId },
+    });
+
+    if (!order) throw new NotFoundException("SaleOrder not found");
+
+    if (order.status === SaleStatus.CANCELLED) {
+      throw new BadRequestException("Order is already cancelled");
+    }
+
+    return this.prisma.saleOrder.update({
+      where: { id },
+      data: {
+        status: SaleStatus.CANCELLED,
+        notes: order.notes
+          ? `${order.notes} | Cancelado: ${reason}`
+          : `Cancelado: ${reason}`,
+      },
+    });
+  }
+
   async findById(companyId: string, id: string) {
     return this.prisma.saleOrder.findFirst({
       where: { id, companyId },

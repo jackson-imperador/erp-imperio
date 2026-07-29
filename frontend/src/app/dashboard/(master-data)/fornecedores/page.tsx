@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import { useAuthStore } from '@/store/authStore';
 import { useCrud } from '@/hooks/useCrud';
 import { GenericDataTable } from '@/components/datatable/GenericDataTable';
 import { GenericDialog } from '@/components/dialogs/GenericDialog';
@@ -9,14 +10,18 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 
 export default function FornecedoresPage() {
-  const { items, isLoading, create, update, remove, isMutating } = useCrud<any>('/suppliers', ['fornecedores']);
+  const companyId = useAuthStore((s) => s.user?.companyId || '');
+  const { items, isLoading, create, update, remove, isMutating } = useCrud<any>(
+    `/company/${companyId}/suppliers`, 
+    ['fornecedores', companyId]
+  );
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [formData, setFormData] = useState<any>({});
 
   const columns = [
     { key: 'name', header: 'Nome' },
-    { key: 'cnpj', header: 'CNPJ' }
+    { key: 'document', header: 'CNPJ' }
   ];
 
   const handleOpen = (item?: any) => {
@@ -86,8 +91,8 @@ export default function FornecedoresPage() {
           <div>
             <Label>CNPJ</Label>
             <Input 
-              value={formData['cnpj'] || ''} 
-              onChange={e => setFormData({ ...formData, 'cnpj': e.target.value })} 
+              value={formData['document'] || ''} 
+              onChange={e => setFormData({ ...formData, 'document': e.target.value })} 
             />
           </div>
           <div className="flex justify-end space-x-2 pt-4">

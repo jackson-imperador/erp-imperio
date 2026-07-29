@@ -110,10 +110,7 @@ export default function PurchaseDetailPage({ params }: { params: Promise<{ id: s
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          {(order.status === 'PENDING_APPROVAL' || order.status === 'DRAFT') && (
-            <Button size="sm" onClick={handleApprove}><CheckCircle className="w-4 h-4 mr-2" />Aprovar</Button>
-          )}
-          {(order.status === 'APPROVED' || order.status === 'ORDERED') && (
+          {(order.status === 'PENDING_APPROVAL' || order.status === 'APPROVED' || order.status === 'ORDERED' || order.status === 'DRAFT') && (
             <Button size="sm" variant="outline" onClick={() => setReceiveDialogOpen(true)}>
               <Package className="w-4 h-4 mr-2" />Receber
             </Button>

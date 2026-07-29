@@ -1,0 +1,6 @@
+--- DB TRACE ---
+1. DB - Product Found: 36d2ef7d-e5fc-46b5-a45d-49ca4adb781e teste  whey
+1. DB - InventoryLevels: 1
+Company ID: company-demo
+--- REPOSITORY / SERVICE TRACE ---
+2. Service - Product Found: 36d2ef7d-e5fc-46b5-a45d-49ca4adb781e teste  whey

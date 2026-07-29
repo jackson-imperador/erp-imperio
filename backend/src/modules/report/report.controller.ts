@@ -45,7 +45,7 @@ export class ReportController {
     return this.reportService.executeReport(
       companyId,
       configId,
-      req.user.sub,
+      req.user.id,
       dto,
     );
   }

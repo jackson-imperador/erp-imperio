@@ -57,6 +57,18 @@ export class UserRepository implements IUserRepository {
     });
   }
 
+  async createUser(data: Partial<User>): Promise<User> {
+    return this.prisma.user.create({
+      data: {
+        email: data.email || '',
+        firstName: data.firstName || '',
+        lastName: data.lastName || '',
+        passwordHash: data.passwordHash || '',
+        status: 'ACTIVE',
+      } as any,
+    });
+  }
+
   async findCompanyMembers(
     companyId: string,
     params: any,

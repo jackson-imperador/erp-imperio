@@ -22,10 +22,12 @@ import { CompanyModule } from "./modules/company/company.module";
 import { UserModule } from "./modules/user/user.module";
 import { CustomerModule } from "./modules/customer/customer.module";
 import { ProductModule } from "./modules/product/product.module";
+import { SupplierModule } from "./modules/supplier/supplier.module";
 import { InventoryModule } from "./modules/inventory/inventory.module";
 import { SalesModule } from "./modules/sales/sales.module";
 import { PurchasingModule } from "./modules/purchasing/purchasing.module";
 import { FinancialModule } from "./modules/financial/financial.module";
+import { PdvModule } from "./modules/pdv/pdv.module";
 import { OrganizationModule } from "./modules/organization/organization.module";
 import { NotificationModule } from "./modules/notification/notification.module";
 import { AuditModule } from "./modules/audit/audit.module";
@@ -53,6 +55,7 @@ import { GlobalEnterpriseModule } from "./modules/global-enterprise/global-enter
 import { OpenEcosystemModule } from "./modules/open-ecosystem/open-ecosystem.module";
 import { GlobalOperationModule } from "./modules/global-operation/global-operation.module";
 import { DataPrivacyModule } from "./modules/data-privacy/data-privacy.module";
+import { HrModule } from "./modules/hr/hr.module";
 
 import { SharedInfrastructureModule } from "./shared/infrastructure/shared-infrastructure.module";
 import { BankingModule } from "./modules/integrations/banking/banking.module";
@@ -112,10 +115,12 @@ import { AiIntegrationModule } from "./modules/integrations/ai/ai.module";
     UserModule,
     CustomerModule,
     ProductModule,
+    SupplierModule,
     InventoryModule,
     SalesModule,
     PurchasingModule,
     FinancialModule,
+    PdvModule,
     OrganizationModule,
     NotificationModule,
     AuditModule,
@@ -143,6 +148,7 @@ import { AiIntegrationModule } from "./modules/integrations/ai/ai.module";
     OpenEcosystemModule,
     GlobalOperationModule,
     DataPrivacyModule,
+    HrModule,
     SharedInfrastructureModule,
     BankingModule,
     PaymentModule,

@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { FinancialTransaction, FinancialFilters } from '@/types/financial';
 import { Plus, FileDown, Filter } from 'lucide-react';
+import { exportToCsv } from '@/utils/exportCsv';
 
 export default function ContasReceberPage() {
   const [filters, setFilters] = useState<FinancialFilters>({ type: 'RECEIVABLE' });
@@ -59,7 +60,7 @@ export default function ContasReceberPage() {
           <Button variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)}>
             <Filter className="w-4 h-4 mr-2" />Filtros
           </Button>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={() => exportToCsv('contas-receber.csv', transactions)}>
             <FileDown className="w-4 h-4 mr-2" />Exportar
           </Button>
           <Link href="/dashboard/financeiro/contas-receber/novo">

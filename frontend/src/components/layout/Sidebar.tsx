@@ -23,6 +23,7 @@ const menuSections = [
       { icon: Building2, label: 'Empresas', href: '/dashboard/empresas' },
       { icon: Users, label: 'Clientes', href: '/dashboard/clientes' },
       { icon: Truck, label: 'Fornecedores', href: '/dashboard/fornecedores' },
+      { icon: Package, label: 'Produtos (Cadastro)', href: '/dashboard/produtos' },
       { icon: Package, label: 'Estoque', href: '/dashboard/estoque' },
       { icon: Package, label: 'Produtos (Estoque)', href: '/dashboard/estoque/produtos' },
       { icon: Package, label: 'Movimentações', href: '/dashboard/estoque/movimentacoes' },

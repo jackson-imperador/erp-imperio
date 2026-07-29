@@ -18,24 +18,55 @@ import { CreateTaxConfigurationDto } from "./dto/create-tax-configuration.dto";
 @ApiTags("Inventory")
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
-@Controller("company/:companyId/inventory")
+@Controller("companies/:companyId/inventory")
 export class InventoryController {
   constructor(private readonly inventoryService: InventoryService) {}
 
-  @Post("warehouses")
-  @ApiOperation({ summary: "Create warehouse" })
-  async createWarehouse(
-    @Param("companyId") companyId: string,
-    @Body() dto: CreateWarehouseDto,
-    @Req() req,
-  ) {
-    return this.inventoryService.createWarehouse(companyId, dto, req.user.sub);
+  // ========================================
+  // DASHBOARD — Real data from DB
+  // ========================================
+  @Get("dashboard")
+  @ApiOperation({ summary: "Get inventory dashboard metrics from real data" })
+  async getDashboard(@Param("companyId") companyId: string) {
+    return this.inventoryService.getDashboardMetrics(companyId);
   }
 
-  @Get("warehouses")
-  @ApiOperation({ summary: "List warehouses" })
-  async getWarehouses(@Param("companyId") companyId: string) {
-    return this.inventoryService.getWarehouses(companyId);
+  // ========================================
+  // PRODUCTS IN INVENTORY — unified view
+  // ========================================
+  @Get("products")
+  @ApiOperation({ summary: "List all products with their inventory levels" })
+  async getInventoryProducts(
+    @Param("companyId") companyId: string,
+    @Query("warehouseId") warehouseId?: string,
+    @Query("status") status?: string,
+    @Query("search") search?: string,
+  ) {
+    return this.inventoryService.getInventoryProducts(companyId, { warehouseId, status, search });
+  }
+
+  @Get("products/:productId")
+  @ApiOperation({ summary: "Get single product inventory detail" })
+  async getProductStock(
+    @Param("companyId") companyId: string,
+    @Param("productId") productId: string,
+  ) {
+    return this.inventoryService.getProductStock(companyId, productId);
+  }
+
+  // ========================================
+  // MOVEMENTS
+  // ========================================
+  @Get("movements")
+  @ApiOperation({ summary: "List stock movements" })
+  async getMovements(
+    @Param("companyId") companyId: string,
+    @Query("productId") productId?: string,
+    @Query("type") type?: string,
+    @Query("dateFrom") dateFrom?: string,
+    @Query("dateTo") dateTo?: string,
+  ) {
+    return this.inventoryService.getMovements(companyId, { productId, type, dateFrom, dateTo });
   }
 
   @Post("movements")
@@ -48,10 +79,32 @@ export class InventoryController {
     return this.inventoryService.createStockMovement(
       companyId,
       dto,
-      req.user.sub,
+      req.user.id,
     );
   }
 
+  // ========================================
+  // WAREHOUSES
+  // ========================================
+  @Post("warehouses")
+  @ApiOperation({ summary: "Create warehouse" })
+  async createWarehouse(
+    @Param("companyId") companyId: string,
+    @Body() dto: CreateWarehouseDto,
+    @Req() req,
+  ) {
+    return this.inventoryService.createWarehouse(companyId, dto, req.user.id);
+  }
+
+  @Get("warehouses")
+  @ApiOperation({ summary: "List warehouses" })
+  async getWarehouses(@Param("companyId") companyId: string) {
+    return this.inventoryService.getWarehouses(companyId);
+  }
+
+  // ========================================
+  // INVENTORY LEVELS (legacy/direct)
+  // ========================================
   @Get("levels")
   @ApiOperation({ summary: "Get inventory levels" })
   async getInventoryLevels(
@@ -66,6 +119,9 @@ export class InventoryController {
     );
   }
 
+  // ========================================
+  // TAX CONFIGURATION
+  // ========================================
   @Post("taxes")
   @ApiOperation({ summary: "Create tax configuration" })
   async createTaxConfig(
@@ -76,7 +132,7 @@ export class InventoryController {
     return this.inventoryService.createTaxConfiguration(
       companyId,
       dto,
-      req.user.sub,
+      req.user.id,
     );
   }
 

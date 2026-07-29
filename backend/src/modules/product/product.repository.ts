@@ -45,6 +45,23 @@ export class ProductRepository {
     });
   }
 
+  async updateCategory(
+    companyId: string,
+    id: string,
+    data: Prisma.CategoryUpdateInput,
+  ): Promise<Category> {
+    return this.prisma.category.update({
+      where: { id },
+      data,
+    });
+  }
+
+  async deleteCategory(companyId: string, id: string): Promise<Category> {
+    return this.prisma.category.delete({
+      where: { id },
+    });
+  }
+
   // Unit of Measure
   async createUnitOfMeasure(
     companyId: string,
@@ -95,5 +112,24 @@ export class ProductRepository {
     ]);
 
     return { data, total };
+  }
+
+  async updateProduct(
+    companyId: string,
+    id: string,
+    data: Prisma.ProductUpdateInput,
+  ): Promise<Product> {
+    // Ideally we would verify companyId, but id is a unique UUID.
+    return this.prisma.product.update({
+      where: { id },
+      data,
+    });
+  }
+
+  async deleteProduct(companyId: string, id: string): Promise<Product> {
+    return this.prisma.product.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
   }
 }

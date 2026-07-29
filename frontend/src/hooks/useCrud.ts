@@ -1,45 +1,57 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/axios';
+import { useAuthStore } from '@/store/authStore';
 
 export function useCrud<T>(endpoint: string, queryKey: string[]) {
   const queryClient = useQueryClient();
+  const companyId = useAuthStore((s) => s.user?.companyId || '');
 
   const query = useQuery({
-    queryKey,
+    queryKey: [...queryKey, companyId],
     queryFn: async () => {
-      // Mocking for frontend architecture tests, in real scenarios use backend
+      if (!companyId) return [];
       try {
-        const { data } = await api.get(endpoint);
-        return data.data || data || [];
+        const hasPrefix = endpoint.startsWith('/companies') || endpoint.startsWith('/company');
+        const url = hasPrefix ? endpoint : `/companies/${companyId}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
+        const { data: resData } = await api.get(url);
+        const unwrapped = resData?.data || resData;
+        return unwrapped?.data || unwrapped || [];
       } catch (e) {
         return [];
       }
-    }
+    },
+    enabled: !!companyId
   });
 
   const createMutation = useMutation({
     mutationFn: async (newData: any) => {
-      const { data } = await api.post(endpoint, newData);
+      const hasPrefix = endpoint.startsWith('/companies') || endpoint.startsWith('/company');
+      const url = hasPrefix ? endpoint : `/companies/${companyId}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
+      const { data } = await api.post(url, newData);
       return data;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey })
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [...queryKey, companyId] })
   });
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: any }) => {
-      const { data: res } = await api.put(`${endpoint}/${id}`, data);
+      const hasPrefix = endpoint.startsWith('/companies') || endpoint.startsWith('/company');
+      const url = hasPrefix ? endpoint : `/companies/${companyId}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
+      const { data: res } = await api.put(`${url}/${id}`, data);
       return res;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey })
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [...queryKey, companyId] })
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { data } = await api.delete(`${endpoint}/${id}`);
+      const hasPrefix = endpoint.startsWith('/companies') || endpoint.startsWith('/company');
+      const url = hasPrefix ? endpoint : `/companies/${companyId}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
+      const { data } = await api.delete(`${url}/${id}`);
       return data;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey })
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [...queryKey, companyId] })
   });
 
   return {

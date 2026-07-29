@@ -28,7 +28,7 @@ export class CustomerController {
     @Body() dto: CreateCustomerDto,
     @Req() req,
   ) {
-    return this.customerService.create(companyId, dto, req.user.sub);
+    return this.customerService.create(companyId, dto, req.user.id);
   }
 
   @Get()

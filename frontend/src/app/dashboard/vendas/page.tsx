@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { SaleOrder, OrderStatus, SalesFilters } from '@/types/sales';
 import { Plus, FileDown, Filter } from 'lucide-react';
+import { exportToCsv } from '@/utils/exportCsv';
 
 const statusOptions: { value: OrderStatus | ''; label: string }[] = [
   { value: '', label: 'Todos' },
@@ -24,7 +25,7 @@ const statusOptions: { value: OrderStatus | ''; label: string }[] = [
 ];
 
 export default function VendasPage() {
-  const [filters, setFilters] = useState<SalesFilters>({});
+  const [filters, setFilters] = useState<SalesFilters>({ perPage: 1000 });
   const [showFilters, setShowFilters] = useState(false);
   const { data: orders = [], isLoading } = useSalesOrders(filters);
 
@@ -74,7 +75,7 @@ export default function VendasPage() {
             <Filter className="w-4 h-4 mr-2" />
             Filtros
           </Button>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={() => exportToCsv('vendas.csv', orders)}>
             <FileDown className="w-4 h-4 mr-2" />
             Exportar
           </Button>

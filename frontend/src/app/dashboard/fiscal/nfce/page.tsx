@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { FiscalDocument, FiscalFilters } from '@/types/fiscal';
 import { Plus, FileDown, Filter } from 'lucide-react';
+import { exportToCsv } from '@/utils/exportCsv';
 
 export default function NfcePage() {
   const [filters, setFilters] = useState<FiscalFilters>({ type: 'NFCE' });
@@ -45,7 +46,7 @@ export default function NfcePage() {
           <Button variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)}>
             <Filter className="w-4 h-4 mr-2" />Filtros
           </Button>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={() => exportToCsv('nfce.csv', documents)}>
             <FileDown className="w-4 h-4 mr-2" />Exportar
           </Button>
           <Link href="/dashboard/fiscal/nfce/nova">

@@ -134,6 +134,9 @@ enum PaymentMethod {
   BANK_TRANSFER
   CHECK
   INSTALLMENT
+  MERCADO_PAGO
+  MERKAUP
+  OTHER
 }
 
 enum StockMovementType {
@@ -4600,3 +4603,66 @@ model PrivacyPolicy {
 
   @@index([companyId])
 }
+
+// ====================================================================
+// FASE 29 - PDV (FRENTE DE CAIXA)
+// ====================================================================
+
+model CashDrawer {
+  id             String               @id @default(uuid())
+  companyId      String
+  name           String
+  status         String               // OPEN, CLOSED
+  currentBalance Decimal              @db.Decimal(15, 2)
+  openedAt       DateTime?
+  closedAt       DateTime?
+  openedBy       String?
+  closedBy       String?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  deletedAt      DateTime?
+  movements      CashDrawerMovement[]
+
+  @@index([companyId])
+}
+
+model CashDrawerMovement {
+  id           String     @id @default(uuid())
+  companyId    String
+  cashDrawerId String
+  type         String     // SUPPLY, WITHDRAWAL, SALE, SANGRIA
+  amount       Decimal    @db.Decimal(15, 2)
+  description  String
+  performedBy  String
+  // V2.2 — Campos de Sangria e Auditoria
+  destination  String?    // BANK, SAFE, FINANCIAL, ADMIN, PAYMENTS, OTHER
+  reason       String?    // Motivo rápido da sangria
+  observacao   String?    // Observação livre
+  ipAddress    String?    // IP do operador para auditoria
+  // V2.3 — Auditoria de saldo
+  balanceBefore Decimal?   @db.Decimal(15, 2)
+  balanceAfter  Decimal?   @db.Decimal(15, 2)
+  createdAt    DateTime   @default(now())
+  cashDrawer   CashDrawer @relation(fields: [cashDrawerId], references: [id])
+
+  @@index([companyId])
+  @@index([cashDrawerId])
+  @@index([type])
+}
+
+model PdvDiscountAudit {
+  id           String     @id @default(uuid())
+  companyId    String
+  cashDrawerId String?
+  operatorId   String
+  type         String     // PERCENTAGE or FIXED
+  value        Decimal    @db.Decimal(15, 2)
+  reason       String?
+  beforeAmount Decimal    @db.Decimal(15, 2)
+  afterAmount  Decimal    @db.Decimal(15, 2)
+  createdAt    DateTime   @default(now())
+
+  @@index([companyId])
+  @@index([cashDrawerId])
+}
+

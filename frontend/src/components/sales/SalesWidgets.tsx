@@ -26,7 +26,7 @@ interface OrderSummaryCardsProps {
 }
 
 export function OrderSummaryCards({ orders }: OrderSummaryCardsProps) {
-  const totalRevenue = orders.reduce((sum, o) => sum + (o.total || 0), 0);
+  const totalRevenue = orders.filter((o) => o.status !== 'CANCELLED').reduce((sum, o) => sum + (o.total || 0), 0);
   const pendingCount = orders.filter((o) => o.status === 'PENDING').length;
   const approvedCount = orders.filter((o) => o.status === 'APPROVED' || o.status === 'INVOICED').length;
   const cancelledCount = orders.filter((o) => o.status === 'CANCELLED').length;

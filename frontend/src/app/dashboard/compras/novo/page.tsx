@@ -13,6 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { Trash2, Plus, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import { useAuthStore } from '@/store/authStore';
 
 const itemSchema = z.object({
   productId: z.string().min(1, 'Selecione um produto'),
@@ -34,9 +35,10 @@ type PurchaseFormData = z.infer<typeof purchaseSchema>;
 
 export default function NovoPedidoCompraPage() {
   const router = useRouter();
+  const companyId = useAuthStore((s) => s.user?.companyId || '');
   const { createOrder } = usePurchaseMutations();
-  const { items: suppliers } = useCrud<{ id: string; name: string }>('/suppliers', ['suppliers']);
-  const { items: products } = useCrud<{ id: string; name: string }>('/products', ['products']);
+  const { items: suppliers } = useCrud<{ id: string; name: string }>(`/company/${companyId}/suppliers`, ['suppliers', companyId]);
+  const { items: products } = useCrud<{ id: string; name: string }>(`/company/${companyId}/catalog/products`, ['products', companyId]);
 
   const {
     register,
@@ -68,7 +70,18 @@ export default function NovoPedidoCompraPage() {
 
   const onSubmit = async (data: PurchaseFormData) => {
     try {
-      await createOrder.mutateAsync(data);
+      // Map to what the backend DTO expects (whitelist: true, forbidNonWhitelisted: true)
+      const payload = {
+        supplierId: data.supplierId,
+        notes: data.notes,
+        items: data.items.map(item => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          unitCost: item.unitCost
+        }))
+      };
+
+      await createOrder.mutateAsync(payload as any);
       toast.success('Pedido de compra criado com sucesso!');
       router.push('/dashboard/compras');
     } catch {

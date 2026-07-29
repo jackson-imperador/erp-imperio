@@ -20,22 +20,74 @@ export function FinancialStatusBadge({ status }: { status: FinancialTransactionS
 
 export function FinancialSummaryCards({ metrics }: { metrics?: DashboardMetrics | null }) {
   const cards = [
-    { title: 'A Receber', value: metrics?.totalReceivables || 0, color: 'text-indigo-500' },
-    { title: 'A Pagar', value: metrics?.totalPayables || 0, color: 'text-rose-500' },
-    { title: 'Recebimentos Atrasados', value: metrics?.overdueReceivables || 0, color: 'text-amber-500' },
-    { title: 'Saldo Projetado', value: metrics?.balance || 0, color: 'text-emerald-500' },
+    { title: 'A Receber', value: metrics?.totalReceivables || 0, color: 'text-indigo-400' },
+    { title: 'A Pagar', value: metrics?.totalPayables || 0, color: 'text-rose-400' },
+    { title: 'Recebimentos Atrasados', value: metrics?.overdueReceivables || 0, color: 'text-amber-400' },
+    { title: 'Saldo Projetado', value: metrics?.balance || 0, color: 'text-emerald-400' },
   ];
 
+  // V2.5 - Novos cards de recebimento (separados)
+  const breakdown = metrics?.paymentBreakdown || {};
+  const receivedCards = [
+    { title: 'Dinheiro', value: breakdown['CASH'] || 0, color: 'text-emerald-400' },
+    { title: 'PIX', value: breakdown['PIX'] || 0, color: 'text-[#32bcad]' },
+    { title: 'Débito', value: breakdown['DEBIT_CARD'] || 0, color: 'text-zinc-300' },
+    { title: 'Crédito', value: breakdown['CREDIT_CARD'] || 0, color: 'text-zinc-300' },
+    { title: 'Mercado Pago', value: breakdown['MERCADO_PAGO'] || 0, color: 'text-[#00b1ea]' },
+    { title: 'Merkaup', value: breakdown['MERKAUP'] || 0, color: 'text-[#7c3aed]' },
+    { title: 'Outros', value: breakdown['OTHER'] || 0, color: 'text-zinc-400' },
+    { title: 'Total Recebido', value: Object.values(breakdown).reduce((a, b) => a + b, 0), color: 'text-primary' },
+  ];
+
+  const growth = metrics?.growth;
+
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      {cards.map((c, i) => (
-        <div key={i} className="bg-white dark:bg-zinc-900 p-5 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
-          <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">{c.title}</p>
-          <p className={`text-2xl font-bold mt-1 ${c.color}`}>
-            R$ {c.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-          </p>
+    <div className="space-y-6">
+      {/* V2.6 - Indicadores Executivos (Growth) */}
+      {growth && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-card/90 backdrop-blur-md p-5 rounded-xl border border-border/50 shadow-[0_4px_24px_-8px_rgba(0,0,0,0.5)] dark:shadow-[0_4px_24px_-8px_rgba(201,148,26,0.08)] hover:border-primary/50 transition-all duration-300">
+            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Receita (Hoje)</p>
+            <p className="text-2xl font-black mt-1 text-emerald-400">R$ {growth.dailyInflow.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+          </div>
+          <div className="bg-card/90 backdrop-blur-md p-5 rounded-xl border border-border/50 shadow-[0_4px_24px_-8px_rgba(0,0,0,0.5)] dark:shadow-[0_4px_24px_-8px_rgba(201,148,26,0.08)] hover:border-primary/50 transition-all duration-300">
+            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Despesa (Hoje)</p>
+            <p className="text-2xl font-black mt-1 text-rose-400">R$ {growth.dailyOutflow.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+          </div>
+          <div className="bg-card/90 backdrop-blur-md p-5 rounded-xl border border-border/50 shadow-[0_4px_24px_-8px_rgba(0,0,0,0.5)] dark:shadow-[0_4px_24px_-8px_rgba(201,148,26,0.08)] hover:border-primary/50 transition-all duration-300">
+            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Receita (Mês)</p>
+            <p className="text-2xl font-black mt-1 text-emerald-400">R$ {growth.monthlyInflow.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+          </div>
+          <div className="bg-card/90 backdrop-blur-md p-5 rounded-xl border border-border/50 shadow-[0_4px_24px_-8px_rgba(0,0,0,0.5)] dark:shadow-[0_4px_24px_-8px_rgba(201,148,26,0.08)] hover:border-primary/50 transition-all duration-300">
+            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Despesa (Mês)</p>
+            <p className="text-2xl font-black mt-1 text-rose-400">R$ {growth.monthlyOutflow.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+          </div>
         </div>
-      ))}
+      )}
+
+      {/* Main Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {cards.map((c, i) => (
+          <div key={`main-${i}`} className="bg-card/60 backdrop-blur-sm p-5 rounded-xl border border-border/30 hover:border-primary/40 transition-all duration-300 shadow-sm">
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{c.title}</p>
+            <p className={`text-xl font-bold mt-1 ${c.color}`}>
+              R$ {c.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </p>
+          </div>
+        ))}
+      </div>
+      
+      {/* Received Breakdown Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {receivedCards.map((c, i) => (
+          <div key={`rec-${i}`} className="bg-[#0a0906]/80 backdrop-blur-sm p-3.5 rounded-xl border border-[rgba(201,148,26,0.15)] hover:border-primary/60 hover:shadow-[0_0_15px_rgba(201,148,26,0.1)] transition-all duration-300">
+            <p className="text-[9px] font-black text-[#7a6840] uppercase tracking-widest">{c.title}</p>
+            <p className={`text-base font-black mt-1 ${c.color}`}>
+              R$ {c.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </p>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

@@ -74,6 +74,13 @@ export interface DashboardMetrics {
     outflow: number;
     balance: number;
   }[];
+  paymentBreakdown?: Record<string, number>;
+  growth?: {
+    dailyInflow: number;
+    dailyOutflow: number;
+    monthlyInflow: number;
+    monthlyOutflow: number;
+  };
 }
 
 export interface PixCharge {

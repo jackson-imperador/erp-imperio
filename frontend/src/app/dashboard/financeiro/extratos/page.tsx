@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { BankStatement } from '@/types/financial';
 import { FileDown, UploadCloud } from 'lucide-react';
+import { exportToCsv } from '@/utils/exportCsv';
 
 export default function ExtratosPage() {
   const { data: statements = [], isLoading } = useBankStatements();
@@ -54,7 +55,7 @@ export default function ExtratosPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={() => exportToCsv('extratos.csv', statements)}>
             <FileDown className="w-4 h-4 mr-2" />Exportar
           </Button>
           <Button size="sm">

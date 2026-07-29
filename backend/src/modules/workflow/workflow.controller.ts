@@ -39,7 +39,7 @@ export class WorkflowController {
     return this.workflowService.startWorkflow(
       companyId,
       code,
-      req.user.sub,
+      req.user.id,
       dto,
     );
   }
@@ -56,7 +56,7 @@ export class WorkflowController {
     return this.workflowService.approveRequest(
       companyId,
       requestId,
-      req.user.sub,
+      req.user.id,
       dto,
     );
   }

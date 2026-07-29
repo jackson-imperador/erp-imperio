@@ -1,0 +1,2 @@
+Error: Request failed with status code 401
+{"success":false,"errorId":"68474b13-387d-4634-a11c-6d2a6f628194","statusCode":401,"timestamp":"2026-07-16T03:43:15.207Z","path":"/api/v1/companies/company-demo/purchasing","method":"GET","correlationId":"68474b13-387d-4634-a11c-6d2a6f628194","message":"Unauthorized"}

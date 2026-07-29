@@ -173,26 +173,35 @@ export default function SaleDetailPage({ params }: { params: Promise<{ id: strin
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between"><span className="text-zinc-500">Nº Pedido</span><span className="font-medium">{order.orderNumber || '-'}</span></div>
                 <div className="flex justify-between"><span className="text-zinc-500">Status</span><StatusBadge status={order.status} /></div>
-                <div className="flex justify-between"><span className="text-zinc-500">Pagamento</span><span className="font-medium">{order.paymentMethod || '-'}</span></div>
-                <div className="flex justify-between"><span className="text-zinc-500">Notas</span><span className="font-medium">{order.notes || '-'}</span></div>
+                
+                <div className="flex justify-between"><span className="text-zinc-500">Data da Compra</span><span className="font-medium">{order.createdAt ? new Date(order.createdAt).toLocaleString('pt-BR') : '-'}</span></div>
+                <div className="flex justify-between items-center"><span className="text-zinc-500">Itens Comprados</span><span className="font-medium text-right max-w-[200px] truncate" title={order.items?.map((i: any) => i.productName).join(', ')}>{order.items?.map((i: any) => i.productName).join(', ') || '-'}</span></div>
+                <div className="flex justify-between"><span className="text-zinc-500">Valor Gasto</span><span className="font-medium text-emerald-500 font-bold">R$ {Number((order as any).totalAmount || order.total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>
+                
+                <div className="flex justify-between"><span className="text-zinc-500">Pagamento</span><span className="font-medium uppercase">{(order as any).payments?.map((p: any) => p.method).join(' / ') || order.paymentMethod || '-'}</span></div>
+                <div className="flex justify-between border-t border-zinc-100 dark:border-zinc-800 pt-2 mt-2"><span className="text-zinc-500">Notas</span><span className="font-medium text-xs max-w-[200px] text-right">{order.notes || '-'}</span></div>
               </div>
             </div>
 
             <div className="bg-white dark:bg-zinc-900 p-6 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-3">
               <h3 className="font-semibold text-zinc-900 dark:text-white">Cliente</h3>
               <div className="space-y-2 text-sm">
-                <div className="flex justify-between"><span className="text-zinc-500">Nome</span><span className="font-medium">{order.customerName || '-'}</span></div>
-                <div className="flex justify-between"><span className="text-zinc-500">ID</span><span className="font-medium text-xs">{order.customerId || '-'}</span></div>
+                <div className="flex justify-between"><span className="text-zinc-500">Nome</span><span className="font-medium">
+                  {(order as any).customer?.name || (order.notes?.match(/Cliente:\s*([^|]+)/)?.[1]?.trim()) || order.customerName || 'Consumidor Final'}
+                </span></div>
+                <div className="flex justify-between"><span className="text-zinc-500">Número (Tel)</span><span className="font-medium">
+                  {(order as any).customer?.phone || (order.notes?.match(/Tel:\s*([^|]+)/)?.[1]?.trim()) || '-'}
+                </span></div>
               </div>
             </div>
 
             <div className="bg-white dark:bg-zinc-900 p-6 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-3 md:col-span-2">
               <h3 className="font-semibold text-zinc-900 dark:text-white">Resumo Financeiro</h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                <div><p className="text-zinc-500">Subtotal</p><p className="text-lg font-bold">R$ {(order.subtotal || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p></div>
-                <div><p className="text-zinc-500">Descontos</p><p className="text-lg font-bold text-red-500">-R$ {(order.discountTotal || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p></div>
-                <div><p className="text-zinc-500">Impostos</p><p className="text-lg font-bold text-amber-500">R$ {(order.taxTotal || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p></div>
-                <div><p className="text-zinc-500">Total</p><p className="text-2xl font-bold text-emerald-500">R$ {(order.total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p></div>
+                <div><p className="text-zinc-500">Subtotal</p><p className="text-lg font-bold">R$ {Number(order.subtotal || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p></div>
+                <div><p className="text-zinc-500">Descontos</p><p className="text-lg font-bold text-red-500">-R$ {Number((order as any).discountAmount || order.discountTotal || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p></div>
+                <div><p className="text-zinc-500">Impostos</p><p className="text-lg font-bold text-amber-500">R$ {Number((order as any).taxAmount || order.taxTotal || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p></div>
+                <div><p className="text-zinc-500">Total</p><p className="text-2xl font-bold text-emerald-500">R$ {Number((order as any).totalAmount || order.total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p></div>
               </div>
             </div>
           </div>

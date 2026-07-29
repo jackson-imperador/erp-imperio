@@ -37,6 +37,10 @@ export class SalesService {
     return order;
   }
 
+  async cancel(companyId: string, id: string, reason: string) {
+    return this.salesRepository.cancel(companyId, id, reason);
+  }
+
   async findById(companyId: string, id: string) {
     return this.salesRepository.findById(companyId, id);
   }

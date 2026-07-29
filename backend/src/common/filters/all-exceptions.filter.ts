@@ -20,6 +20,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     const status = HttpStatus.INTERNAL_SERVER_ERROR;
 
+    console.error(`[${errorId}] Unhandled exception on ${request.method} ${request.url}`, exception);
     this.logger.error(
       `[${errorId}] Unhandled exception on ${request.method} ${request.url}`,
       exception instanceof Error ? exception.stack : String(exception),

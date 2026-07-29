@@ -27,7 +27,7 @@ export class OrganizationController {
     @Body() dto: CreateDepartmentDto,
     @Req() req,
   ) {
-    return this.orgService.createDepartment(companyId, dto, req.user.sub);
+    return this.orgService.createDepartment(companyId, dto, req.user.id);
   }
 
   @Get("departments")
@@ -43,7 +43,7 @@ export class OrganizationController {
     @Body() dto: CreateEmployeeProfileDto,
     @Req() req,
   ) {
-    return this.orgService.createEmployeeProfile(companyId, dto, req.user.sub);
+    return this.orgService.createEmployeeProfile(companyId, dto, req.user.id);
   }
 
   @Get("employees")

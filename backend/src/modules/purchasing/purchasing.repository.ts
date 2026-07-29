@@ -235,4 +235,217 @@ export class PurchasingRepository {
 
     return { data, total, skip, take };
   }
+
+  async importXml(
+    companyId: string,
+    dto: import("./dto/import-purchase-xml.dto").ImportPurchaseXmlDto,
+    createdBy: string,
+  ) {
+    return this.prisma.$transaction(async (tx) => {
+      let addedProductsCount = 0;
+      let existingProductsCount = 0;
+      const orderItems = [];
+      let subtotal = new Prisma.Decimal(0);
+
+      // Create a dummy supplier if none exists for this company
+      let supplier = await tx.supplier.findFirst({ where: { companyId } });
+      if (!supplier) {
+        supplier = await tx.supplier.create({
+          data: {
+            companyId,
+            name: "Fornecedor Importado via XML",
+            document: "00000000000000",
+          }
+        });
+      }
+
+      for (const p of dto.products) {
+        // Find existing product by SKU
+        let product = await tx.product.findUnique({
+          where: { companyId_sku: { companyId, sku: p.sku } }
+        });
+
+        if (!product) {
+          product = await tx.product.create({
+            data: {
+              companyId,
+              sku: p.sku,
+              name: p.name,
+              costPrice: p.costPrice,
+              salePrice: p.salePrice,
+              barcode: p.barcode,
+              type: "PHYSICAL",
+            }
+          });
+          addedProductsCount++;
+        } else {
+          existingProductsCount++;
+        }
+
+        const itemTotal = new Prisma.Decimal(p.quantity).mul(p.costPrice);
+        subtotal = subtotal.add(itemTotal);
+
+        orderItems.push({
+          productId: product.id,
+          productName: product.name,
+          quantity: p.quantity,
+          unitCost: p.costPrice,
+          totalCost: itemTotal,
+        });
+      }
+
+      const count = await tx.purchaseOrder.count({ where: { companyId } });
+      const orderNumber = `PO-XML-${new Date().getFullYear()}-${String(count + 1).padStart(5, "0")}`;
+
+      const taxAmount = new Prisma.Decimal(0);
+      const totalAmount = subtotal.add(taxAmount);
+
+      const order = await tx.purchaseOrder.create({
+        data: {
+          companyId,
+          supplierId: supplier.id,
+          orderNumber,
+          status: PurchaseOrderStatus.RECEIVED,
+          subtotal,
+          taxAmount,
+          totalAmount,
+          notes: `Importado via XML: ${dto.fileName}`,
+          createdBy,
+          receivedAt: new Date(),
+          items: {
+            create: orderItems,
+          },
+        },
+        include: { items: true },
+      });
+
+      const warehouse = await tx.warehouse.findFirst({
+        where: { companyId, isActive: true },
+      });
+
+      if (warehouse) {
+        // 1. Add Inventory & Update Average Cost
+        for (const item of order.items) {
+          await tx.stockMovement.create({
+            data: {
+              companyId,
+              warehouseId: warehouse.id,
+              productId: item.productId,
+              type: StockMovementType.ENTRY,
+              quantity: item.quantity,
+              unitCost: item.unitCost,
+              referenceId: order.id,
+              referenceType: "PURCHASE_ORDER",
+              performedBy: createdBy,
+            },
+          });
+
+          const currentLevel = await tx.inventoryLevel.findUnique({
+            where: {
+              warehouseId_productId: {
+                warehouseId: warehouse.id,
+                productId: item.productId,
+              },
+            },
+          });
+
+          const currentQty = currentLevel ? currentLevel.quantity : new Prisma.Decimal(0);
+          const newQty = currentQty.add(item.quantity);
+
+          await tx.inventoryLevel.upsert({
+            where: {
+              warehouseId_productId: {
+                warehouseId: warehouse.id,
+                productId: item.productId,
+              },
+            },
+            create: {
+              companyId,
+              warehouseId: warehouse.id,
+              productId: item.productId,
+              quantity: newQty,
+            },
+            update: {
+              quantity: newQty,
+            },
+          });
+
+          const product = await tx.product.findUnique({
+            where: { id: item.productId },
+          });
+          if (product) {
+            let newCost = new Prisma.Decimal(item.unitCost);
+            if (currentQty.greaterThan(0)) {
+              const totalValueOld = currentQty.mul(product.costPrice);
+              const totalValueNew = new Prisma.Decimal(item.quantity).mul(item.unitCost);
+              newCost = totalValueOld.add(totalValueNew).div(newQty);
+            }
+            await tx.product.update({
+              where: { id: item.productId },
+              data: { costPrice: newCost },
+            });
+          }
+        }
+      }
+
+      // 2. Generate Accounts Payable or Financial Transaction based on isCashPayment
+      if (dto.isCashPayment) {
+        // Create an already PAID accounts payable
+        await tx.accountsPayable.create({
+          data: {
+            companyId,
+            supplierId: order.supplierId,
+            purchaseOrderId: order.id,
+            documentNumber: order.orderNumber,
+            description: `Compra à Vista XML: ${order.orderNumber}`,
+            amount: order.totalAmount,
+            balanceDue: 0,
+            status: PayableStatus.PAID,
+            dueDate: new Date(),
+          },
+        });
+
+        // Try to create a transaction directly to reflect cash going out
+        const defaultAccount = await tx.financialAccount.findFirst({ where: { companyId } });
+        if (defaultAccount) {
+          await tx.financialTransaction.create({
+            data: {
+              companyId,
+              accountId: defaultAccount.id,
+              type: "EXPENSE",
+              status: "COMPLETED",
+              amount: order.totalAmount,
+              paidAt: new Date(),
+              description: `Pagamento à Vista - Compra XML ${order.orderNumber}`,
+              referenceType: "PURCHASE_ORDER",
+              referenceId: order.id,
+              createdBy: createdBy,
+            }
+          });
+        }
+      } else {
+        // Credit (A prazo) - PENDING accounts payable
+        await tx.accountsPayable.create({
+          data: {
+            companyId,
+            supplierId: order.supplierId,
+            purchaseOrderId: order.id,
+            documentNumber: order.orderNumber,
+            description: `Compra a Prazo XML: ${order.orderNumber}`,
+            amount: order.totalAmount,
+            balanceDue: order.totalAmount,
+            status: PayableStatus.PENDING,
+            dueDate: new Date(new Date().setDate(new Date().getDate() + 30)), // Default +30 days
+          },
+        });
+      }
+
+      return {
+        order,
+        addedProductsCount,
+        existingProductsCount,
+        totalProducts: dto.products.length
+      };
+    });
+  }
 }

@@ -111,4 +111,19 @@ export class AccountsReceivableService {
 
     return { data, total, skip, take };
   }
+
+  async cancel(companyId: string, id: string, reason?: string) {
+    const receivable = await this.prisma.accountsReceivable.findFirst({
+      where: { id, companyId },
+    });
+    if (!receivable) throw new NotFoundException("Receivable not found");
+    if (receivable.status === ReceivableStatus.PAID) {
+      throw new BadRequestException("Cannot cancel a fully paid receivable");
+    }
+
+    return this.prisma.accountsReceivable.update({
+      where: { id },
+      data: { status: ReceivableStatus.CANCELLED },
+    });
+  }
 }

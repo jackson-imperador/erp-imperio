@@ -8,7 +8,7 @@ import { UserRepository } from "./user.repository";
 import { UpdateUserDto } from "./dto/update-user.dto";
 import { InviteUserDto } from "./dto/invite-user.dto";
 import { ChangePasswordDto } from "./dto/change-password.dto";
-import * as argon2 from "argon2";
+import * as bcrypt from "bcryptjs";
 
 @Injectable()
 export class UserService {
@@ -46,10 +46,16 @@ export class UserService {
     const user = await this.userRepository.findById(userId);
     if (!user) throw new NotFoundException("User not found");
 
-    const isMatch = await argon2.verify(user.passwordHash, dto.currentPassword);
+    console.log(`[changePassword debug] userId: ${userId}`);
+    console.log(`[changePassword debug] dto: ${JSON.stringify(dto)}`);
+    console.log(`[changePassword debug] db hash: ${user.passwordHash}`);
+
+    const isMatch = await bcrypt.compare(dto.currentPassword, user.passwordHash);
+    console.log(`[changePassword debug] isMatch: ${isMatch}`);
+
     if (!isMatch) throw new BadRequestException("Invalid current password");
 
-    const newHash = await argon2.hash(dto.newPassword);
+    const newHash = await bcrypt.hash(dto.newPassword, 12);
     await this.userRepository.changePassword(userId, newHash);
 
     this.eventEmitter.emit("entity.updated", {
@@ -80,8 +86,14 @@ export class UserService {
 
     if (!user) {
       // In a real flow we'd send an email with a token to create a password
-      // For now we stub the creation
-      user = (await this.userRepository.updateProfile("temp", {})) as any; // Stub
+      // For now we create the user with a default password so they can login
+      const defaultPasswordHash = await bcrypt.hash('Mudar@123', 12);
+      user = await this.userRepository.createUser({
+        email: dto.email,
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        passwordHash: defaultPasswordHash
+      });
     }
 
     const membership = await this.userRepository.addToCompany(

@@ -6,38 +6,54 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useFinancialMutations } from '@/hooks/useFinancial';
 import { useCrud } from '@/hooks/useCrud';
+import { useAuthStore } from '@/store/authStore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
-import { CreateTransactionDto } from '@/types/financial';
 
 const schema = z.object({
   description: z.string().min(1, 'Descrição obrigatória'),
   amount: z.number().min(0.01, 'Valor inválido'),
   dueDate: z.string().min(1, 'Vencimento obrigatório'),
   supplierId: z.string().optional(),
-  categoryId: z.string().optional(),
 });
 
 export default function NovoPagamentoPage() {
   const router = useRouter();
   const { createTransaction, isMutating } = useFinancialMutations();
-  const { items: suppliers } = useCrud<{ id: string; name: string }>('/suppliers', ['suppliers']);
+  const companyId = useAuthStore((s) => s.user?.companyId || '');
+
+  // FIX 1: usar rota correta do backend (/company/ singular, não /companies/)
+  const { items: suppliers } = useCrud<{ id: string; name: string }>(
+    `/company/${companyId}/suppliers`,
+    ['suppliers']
+  );
 
   const { register, handleSubmit, formState: { errors } } = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
-    defaultValues: { amount: 0, description: '', dueDate: '', supplierId: '', categoryId: '' },
+    defaultValues: { amount: 0, description: '', dueDate: '', supplierId: '' },
   });
 
   const onSubmit = async (data: z.infer<typeof schema>) => {
     try {
-      await createTransaction.mutateAsync({
-        ...data,
-        type: 'PAYABLE',
-      } as CreateTransactionDto);
+      // FIX 2+3: montar payload somente com campos que existem no CreatePayableDto
+      // Remover: type, categoryId (inexistentes no DTO)
+      // Remover supplierId se vazio (evita falha no @IsUUID())
+      // FIX 4: converter dueDate para ISO 8601 completo
+      const payload: Record<string, unknown> = {
+        description: data.description,
+        amount: data.amount,
+        dueDate: new Date(data.dueDate).toISOString(),
+      };
+
+      if (data.supplierId && data.supplierId.trim() !== '') {
+        payload.supplierId = data.supplierId;
+      }
+
+      await createTransaction.mutateAsync(payload as any);
       toast.success('Obrigação criada com sucesso!');
       router.push('/dashboard/financeiro/contas-pagar');
     } catch {

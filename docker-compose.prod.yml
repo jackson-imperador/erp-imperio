@@ -55,6 +55,7 @@ services:
       - DB_HOST=db
       - REDIS_HOST=redis
       - MINIO_ENDPOINT=minio
+      - CORS_ORIGINS=http://localhost:3000,http://localhost:3002,http://localhost
     ports:
       - "3001:3000" # Exposing on 3001 locally, or use Nginx
     depends_on:
@@ -67,11 +68,13 @@ services:
   frontend:
     build:
       context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost/api/v1
     container_name: erp_imperio_frontend
     restart: always
     environment:
       - NODE_ENV=production
-      - NEXT_PUBLIC_API_URL=http://localhost/api
+      - NEXT_PUBLIC_API_URL=http://localhost/api/v1
     ports:
       - "3002:3000"
     depends_on:

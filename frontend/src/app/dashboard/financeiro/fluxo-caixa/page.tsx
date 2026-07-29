@@ -5,6 +5,7 @@ import { CashFlowChart } from '@/components/financial/FinancialWidgets';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { FileDown, Calendar } from 'lucide-react';
+import { exportToCsv } from '@/utils/exportCsv';
 
 export default function FluxoCaixaPage() {
   const { data: metrics, isLoading } = useFinancialDashboard();
@@ -19,11 +20,11 @@ export default function FluxoCaixaPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm">
-            <Calendar className="w-4 h-4 mr-2" />Filtrar Período
+          <Button variant="outline" size="sm" onClick={() => window.print()}>
+            <FileDown className="w-4 h-4 mr-2" />Relatório PDF
           </Button>
-          <Button variant="outline" size="sm">
-            <FileDown className="w-4 h-4 mr-2" />Exportar
+          <Button variant="outline" size="sm" onClick={() => exportToCsv('fluxo-caixa.csv', metrics?.cashFlowSeries || [])}>
+            <FileDown className="w-4 h-4 mr-2" />Exportar Dados
           </Button>
         </div>
       </div>

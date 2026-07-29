@@ -8,7 +8,7 @@ import {
   ReceiveItemDto,
 } from '@/types/purchases';
 
-const BASE = '/purchasing/orders';
+const BASE = '/purchasing';
 
 export const purchaseService = {
   async list(companyId: string, filters?: PurchaseFilters): Promise<PurchaseOrder[]> {
@@ -20,7 +20,13 @@ export const purchaseService = {
       if (filters?.dateTo) params.append('dateTo', filters.dateTo);
       if (filters?.search) params.append('search', filters.search);
       const { data } = await api.get(`/companies/${companyId}${BASE}`, { params });
-      return data.data || data || [];
+      const payload = data.data?.data || data.data || data;
+      const items = Array.isArray(payload) ? payload : (Array.isArray(payload?.data) ? payload.data : []);
+      return items.map((item: any) => ({
+        ...item,
+        total: Number(item.totalAmount) || 0,
+        supplierName: item.supplier?.name || '',
+      }));
     } catch {
       return [];
     }
@@ -29,7 +35,18 @@ export const purchaseService = {
   async getById(companyId: string, id: string): Promise<PurchaseOrder | null> {
     try {
       const { data } = await api.get(`/companies/${companyId}${BASE}/${id}`);
-      return data.data || data;
+      const item = data.data || data;
+      if (!item) return null;
+      return {
+        ...item,
+        total: Number(item.totalAmount) || 0,
+        supplierName: item.supplier?.name || '',
+        items: (item.items || []).map((i: any) => ({
+          ...i,
+          total: Number(i.totalCost) || 0,
+          receivedQuantity: Number(i.receivedQty) || 0,
+        }))
+      };
     } catch {
       return null;
     }
@@ -61,14 +78,14 @@ export const purchaseService = {
   },
 
   async receiveAll(companyId: string, id: string): Promise<PurchaseOrder> {
-    const { data } = await api.post(`/companies/${companyId}${BASE}/${id}/receive-all`);
+    const { data } = await api.patch(`/companies/${companyId}${BASE}/${id}/receive`);
     return data.data || data;
   },
 
   async getTimeline(companyId: string, id: string): Promise<PurchaseEvent[]> {
     try {
       const { data } = await api.get(`/companies/${companyId}${BASE}/${id}/events`);
-      return data.data || data || [];
+      return data.data?.data || data.data || data || [];
     } catch {
       return [];
     }
@@ -77,7 +94,7 @@ export const purchaseService = {
   async getQuotations(companyId: string, id: string): Promise<PurchaseQuotation[]> {
     try {
       const { data } = await api.get(`/companies/${companyId}${BASE}/${id}/quotations`);
-      return data.data || data || [];
+      return data.data?.data || data.data || data || [];
     } catch {
       return [];
     }

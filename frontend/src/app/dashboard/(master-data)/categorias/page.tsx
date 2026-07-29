@@ -8,8 +8,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 
+import { useAuthStore } from '@/store/authStore';
+
 export default function CategoriasPage() {
-  const { items, isLoading, create, update, remove, isMutating } = useCrud<any>('/categories', ['categorias']);
+  const companyId = useAuthStore(s => s.user?.companyId || '');
+  const { items, isLoading, create, update, remove, isMutating } = useCrud<any>(`/company/${companyId}/catalog/categories`, ['categorias', companyId]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [formData, setFormData] = useState<any>({});
@@ -26,11 +29,16 @@ export default function CategoriasPage() {
 
   const handleSave = async () => {
     try {
+      const payload = {
+        ...formData,
+        slug: formData.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '')
+      };
+
       if (editingItem) {
-        await update({ id: editingItem.id, data: formData });
+        await update({ id: editingItem.id, data: payload });
         toast.success('Registro atualizado com sucesso!');
       } else {
-        await create(formData);
+        await create(payload);
         toast.success('Registro criado com sucesso!');
       }
       setIsModalOpen(false);

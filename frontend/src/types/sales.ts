@@ -75,4 +75,5 @@ export interface SalesFilters {
   dateFrom?: string;
   dateTo?: string;
   search?: string;
+  perPage?: number;
 }

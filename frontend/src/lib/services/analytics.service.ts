@@ -1,7 +1,7 @@
 import { api } from '@/lib/axios';
 import { BiDashboardMetrics, BiFilters, AnalyticsPrediction, KPI } from '@/types/bi';
 
-const BASE = '/analytics';
+const BASE = '/bi';
 
 export const analyticsService = {
   async getExecutiveDashboard(companyId: string, filters?: BiFilters): Promise<BiDashboardMetrics | null> {

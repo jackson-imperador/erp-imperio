@@ -8,15 +8,18 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 
+import { useAuthStore } from '@/store/authStore';
+
 export default function ClientesPage() {
-  const { items, isLoading, create, update, remove, isMutating } = useCrud<any>('/customers', ['clientes']);
+  const companyId = useAuthStore(s => s.user?.companyId || '');
+  const { items, isLoading, create, update, remove, isMutating } = useCrud<any>(`/company/${companyId}/customers`, ['clientes', companyId]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [formData, setFormData] = useState<any>({});
 
   const columns = [
     { key: 'name', header: 'Nome' },
-    { key: 'document', header: 'Documento' }
+    { key: 'phone', header: 'Celular' }
   ];
 
   const handleOpen = (item?: any) => {
@@ -27,11 +30,16 @@ export default function ClientesPage() {
 
   const handleSave = async () => {
     try {
+      const payload = {
+        ...formData,
+        type: formData.type || 'INDIVIDUAL'
+      };
+
       if (editingItem) {
-        await update({ id: editingItem.id, data: formData });
+        await update({ id: editingItem.id, data: payload });
         toast.success('Registro atualizado com sucesso!');
       } else {
-        await create(formData);
+        await create(payload);
         toast.success('Registro criado com sucesso!');
       }
       setIsModalOpen(false);
@@ -71,7 +79,7 @@ export default function ClientesPage() {
       <GenericDialog 
         open={isModalOpen} 
         onOpenChange={setIsModalOpen} 
-        title={editingItem ? 'Editar Clientes' : 'Novo Clientes'}
+        title={editingItem ? 'Editar Cliente' : 'Novo Cliente'}
       >
         <div className="space-y-4">
           
@@ -84,10 +92,11 @@ export default function ClientesPage() {
           </div>
           
           <div>
-            <Label>Documento</Label>
+            <Label>Número Celular</Label>
             <Input 
-              value={formData['document'] || ''} 
-              onChange={e => setFormData({ ...formData, 'document': e.target.value })} 
+              value={formData['phone'] || ''} 
+              onChange={e => setFormData({ ...formData, 'phone': e.target.value })} 
+              placeholder="(00) 00000-0000"
             />
           </div>
           <div className="flex justify-end space-x-2 pt-4">

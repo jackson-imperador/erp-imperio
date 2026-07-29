@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, BadRequestException } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { ProductRepository } from "./product.repository";
 import { CreateBrandDto } from "./dto/create-brand.dto";
@@ -40,6 +40,23 @@ export class ProductService {
     return this.productRepository.findCategories(companyId);
   }
 
+  async updateCategory(
+    companyId: string,
+    id: string,
+    dto: Partial<CreateCategoryDto>,
+    userId: string,
+  ) {
+    const category = await this.productRepository.updateCategory(companyId, id, dto);
+    this.emitEvent("CategoryUpdated", category.id, companyId, userId, category);
+    return category;
+  }
+
+  async deleteCategory(companyId: string, id: string, userId: string) {
+    const category = await this.productRepository.deleteCategory(companyId, id);
+    this.emitEvent("CategoryDeleted", category.id, companyId, userId, category);
+    return category;
+  }
+
   async createUnitOfMeasure(
     companyId: string,
     dto: CreateUnitOfMeasureDto,
@@ -59,22 +76,36 @@ export class ProductService {
 
   async createProduct(
     companyId: string,
-    dto: CreateProductDto,
+    dto: CreateProductDto & { initialStock?: number },
     userId: string,
   ) {
-    const { categoryId, brandId, unitOfMeasureId, ...rest } = dto;
-    const product = await this.productRepository.createProduct(companyId, {
-      ...rest,
-      company: { connect: { id: companyId } },
-      ...(categoryId && { category: { connect: { id: categoryId } } }),
-      ...(brandId && { Brand: { connect: { id: brandId } } }),
-      ...(unitOfMeasureId && {
-        UnitOfMeasure: { connect: { id: unitOfMeasureId } },
-      }),
-    });
+    const { categoryId, brandId, unitOfMeasureId, initialStock, ...rest } = dto as any;
+    try {
+      const product = await this.productRepository.createProduct(companyId, {
+        ...rest,
+        company: { connect: { id: companyId } },
+        ...(categoryId && { category: { connect: { id: categoryId } } }),
+        ...(brandId && { Brand: { connect: { id: brandId } } }),
+        ...(unitOfMeasureId && {
+          UnitOfMeasure: { connect: { id: unitOfMeasureId } },
+        }),
+      });
 
-    this.emitEvent("Product", product.id, companyId, userId, product);
-    return product;
+      this.eventEmitter.emit("product.created", {
+        companyId,
+        productId: product.id,
+        userId,
+        initialStock
+      });
+
+      this.emitEvent("Product", product.id, companyId, userId, product);
+      return product;
+    } catch (error: any) {
+      if (error.code === 'P2002') {
+        throw new BadRequestException('O SKU (ou Código de Barras) informado já existe.');
+      }
+      throw error;
+    }
   }
 
   async getProducts(
@@ -100,5 +131,29 @@ export class ProductService {
       userId,
       newData,
     });
+  }
+
+  async updateProduct(
+    companyId: string,
+    id: string,
+    dto: Partial<CreateProductDto> & { initialStock?: number },
+    userId: string,
+  ) {
+    const { categoryId, brandId, unitOfMeasureId, initialStock, ...rest } = dto as any;
+    const updateData: any = { ...rest };
+    
+    if (categoryId) updateData.category = { connect: { id: categoryId } };
+    if (brandId) updateData.Brand = { connect: { id: brandId } };
+    if (unitOfMeasureId) updateData.UnitOfMeasure = { connect: { id: unitOfMeasureId } };
+
+    const product = await this.productRepository.updateProduct(companyId, id, updateData);
+    this.emitEvent("ProductUpdated", product.id, companyId, userId, product);
+    return product;
+  }
+
+  async deleteProduct(companyId: string, id: string, userId: string) {
+    const product = await this.productRepository.deleteProduct(companyId, id);
+    this.emitEvent("ProductDeleted", product.id, companyId, userId, product);
+    return product;
   }
 }

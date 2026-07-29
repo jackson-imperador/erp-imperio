@@ -12,8 +12,25 @@ export const salesService = {
       if (filters?.dateFrom) params.append('dateFrom', filters.dateFrom);
       if (filters?.dateTo) params.append('dateTo', filters.dateTo);
       if (filters?.search) params.append('search', filters.search);
+      if (filters?.perPage) params.append('perPage', filters.perPage.toString());
       const { data } = await api.get(`/companies/${companyId}${BASE}`, { params });
-      return data.data || data || [];
+      let items: any[] = [];
+      if (Array.isArray(data)) items = data;
+      else if (data?.data && Array.isArray(data.data)) items = data.data;
+      else if (data?.data?.data && Array.isArray(data.data.data)) items = data.data.data;
+      return items.map((item: any) => {
+        let parsedName = item.customer?.name;
+        if (!parsedName && item.notes && item.notes.includes('Cliente:')) {
+          const match = item.notes.match(/Cliente:\s*([^|]+)/);
+          if (match) parsedName = match[1].trim();
+        }
+        return {
+          ...item,
+          total: Number(item.totalAmount) || 0,
+          discount: Number(item.discountAmount) || 0,
+          customerName: parsedName || 'Consumidor Final'
+        };
+      });
     } catch {
       return [];
     }

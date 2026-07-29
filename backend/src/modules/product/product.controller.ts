@@ -2,6 +2,8 @@ import {
   Controller,
   Get,
   Post,
+  Put,
+  Delete,
   Body,
   Param,
   UseGuards,
@@ -31,7 +33,7 @@ export class ProductController {
     @Body() dto: CreateBrandDto,
     @Req() req,
   ) {
-    return this.productService.createBrand(companyId, dto, req.user.sub);
+    return this.productService.createBrand(companyId, dto, req.user.id);
   }
 
   @Get("brands")
@@ -47,13 +49,34 @@ export class ProductController {
     @Body() dto: CreateCategoryDto,
     @Req() req,
   ) {
-    return this.productService.createCategory(companyId, dto, req.user.sub);
+    return this.productService.createCategory(companyId, dto, req.user.id);
   }
 
   @Get("categories")
   @ApiOperation({ summary: "List categories" })
   async getCategories(@Param("companyId") companyId: string) {
     return this.productService.getCategories(companyId);
+  }
+
+  @Put("categories/:id")
+  @ApiOperation({ summary: "Update category" })
+  async updateCategory(
+    @Param("companyId") companyId: string,
+    @Param("id") id: string,
+    @Body() dto: Partial<CreateCategoryDto>,
+    @Req() req,
+  ) {
+    return this.productService.updateCategory(companyId, id, dto, req.user.id);
+  }
+
+  @Delete("categories/:id")
+  @ApiOperation({ summary: "Delete category" })
+  async deleteCategory(
+    @Param("companyId") companyId: string,
+    @Param("id") id: string,
+    @Req() req,
+  ) {
+    return this.productService.deleteCategory(companyId, id, req.user.id);
   }
 
   @Post("units")
@@ -66,7 +89,7 @@ export class ProductController {
     return this.productService.createUnitOfMeasure(
       companyId,
       dto,
-      req.user.sub,
+      req.user.id,
     );
   }
 
@@ -83,7 +106,7 @@ export class ProductController {
     @Body() dto: CreateProductDto,
     @Req() req,
   ) {
-    return this.productService.createProduct(companyId, dto, req.user.sub);
+    return this.productService.createProduct(companyId, dto, req.user.id);
   }
 
   @Get("products")
@@ -95,5 +118,26 @@ export class ProductController {
     const skip = ((query.page || 1) - 1) * (query.perPage || 10);
     const take = query.perPage || 10;
     return this.productService.getProducts(companyId, skip, take, query.search);
+  }
+
+  @Put("products/:id")
+  @ApiOperation({ summary: "Update product" })
+  async updateProduct(
+    @Param("companyId") companyId: string,
+    @Param("id") id: string,
+    @Body() dto: Partial<CreateProductDto>,
+    @Req() req,
+  ) {
+    return this.productService.updateProduct(companyId, id, dto, req.user.id);
+  }
+
+  @Delete("products/:id")
+  @ApiOperation({ summary: "Delete product" })
+  async deleteProduct(
+    @Param("companyId") companyId: string,
+    @Param("id") id: string,
+    @Req() req,
+  ) {
+    return this.productService.deleteProduct(companyId, id, req.user.id);
   }
 }

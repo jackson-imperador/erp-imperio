@@ -18,7 +18,7 @@ export default function BiFinanceiroPage() {
             Análise de DRE, Fluxo de Caixa e Inadimplência
           </p>
         </div>
-        <Button variant="outline" size="sm">
+        <Button variant="outline" size="sm" onClick={() => window.print()}>
           <Download className="w-4 h-4 mr-2" />Exportar PDF
         </Button>
       </div>

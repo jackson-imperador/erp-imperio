@@ -28,7 +28,7 @@ export class SupplierController {
     @Body() dto: CreateSupplierDto,
     @Req() req,
   ) {
-    return this.supplierService.create(companyId, dto, req.user.sub);
+    return this.supplierService.create(companyId, dto, req.user.id);
   }
 
   @Get()

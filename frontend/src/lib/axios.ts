@@ -1,9 +1,10 @@
-
 import axios from 'axios';
 import { useAuthStore } from '../store/authStore';
 
+const isServer = typeof window === 'undefined';
+
 export const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1',
+  baseURL: isServer ? 'http://backend:3000/api/v1' : '/api/v1',
   headers: { 'Content-Type': 'application/json' },
 });
 
@@ -20,7 +21,11 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       useAuthStore.getState().logout();
-      window.location.href = '/login';
+      // Use pushState to avoid a hard HTTP GET navigation that bypasses Next.js routing
+      if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+        window.history.pushState({}, '', '/login');
+        window.dispatchEvent(new PopStateEvent('popstate'));
+      }
     }
     return Promise.reject(error);
   }

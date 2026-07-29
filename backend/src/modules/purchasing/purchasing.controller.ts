@@ -12,6 +12,7 @@ import {
 import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
 import { PurchasingService } from "./purchasing.service";
 import { CreatePurchaseOrderDto } from "./dto/create-purchase-order.dto";
+import { ImportPurchaseXmlDto } from "./dto/import-purchase-xml.dto";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
 import { Roles } from "../../common/decorators/roles.decorator";
@@ -20,7 +21,7 @@ import { PaginationQueryDto } from "../../common/dto/pagination-query.dto";
 @ApiTags("Purchasing")
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Controller("api/v1/companies/:companyId/purchasing")
+@Controller("companies/:companyId/purchasing")
 export class PurchasingController {
   constructor(private readonly purchasingService: PurchasingService) {}
 
@@ -32,8 +33,20 @@ export class PurchasingController {
     @Body() dto: CreatePurchaseOrderDto,
     @Req() req: any,
   ) {
-    const userId = req.user.sub;
+    const userId = req.user.id;
     return this.purchasingService.create(companyId, dto, userId);
+  }
+
+  @Post("import-xml")
+  @Roles("COMPANY_OWNER", "COMPANY_ADMIN", "MANAGER")
+  @ApiOperation({ summary: "Import an XML invoice and orchestrate products, inventory and finance" })
+  async importXml(
+    @Param("companyId") companyId: string,
+    @Body() dto: ImportPurchaseXmlDto,
+    @Req() req: any,
+  ) {
+    const userId = req.user.id;
+    return this.purchasingService.importXml(companyId, dto, userId);
   }
 
   @Patch(":id/receive")
@@ -47,7 +60,7 @@ export class PurchasingController {
     @Param("id") id: string,
     @Req() req: any,
   ) {
-    const userId = req.user.sub;
+    const userId = req.user.id;
     return this.purchasingService.receive(companyId, id, userId);
   }
 

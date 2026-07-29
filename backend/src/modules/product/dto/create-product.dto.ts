@@ -76,4 +76,11 @@ export class CreateProductDto {
   @IsNumber()
   @Min(0)
   weight?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  initialStock?: number;
 }

@@ -20,7 +20,7 @@ import { PaginationQueryDto } from "../../common/dto/pagination-query.dto";
 @ApiTags("Sales")
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Controller("api/v1/companies/:companyId/sales")
+@Controller("companies/:companyId/sales/orders")
 export class SalesController {
   constructor(private readonly salesService: SalesService) {}
 
@@ -45,7 +45,7 @@ export class SalesController {
     @Param("id") id: string,
     @Req() req: any,
   ) {
-    const userId = req.user.sub;
+    const userId = req.user.id;
     return this.salesService.confirm(companyId, id, userId);
   }
 
@@ -54,11 +54,26 @@ export class SalesController {
   @ApiOperation({ summary: "List sale orders" })
   async findAll(
     @Param("companyId") companyId: string,
-    @Query() query: PaginationQueryDto & { search?: string },
+    @Query() query: any,
   ) {
-    const skip = ((query.page || 1) - 1) * (query.perPage || 10);
-    const take = query.perPage || 10;
-    return this.salesService.findAll(companyId, skip, take, query.search);
+    const page = Number(query.page) || 1;
+    const perPage = Number(query.perPage) || 10;
+    const skip = (page - 1) * perPage;
+    const take = perPage;
+    const result = await this.salesService.findAll(companyId, skip, take, query.search);
+    console.log("SENDING SALES TO FRONTEND. Count:", result.data.length);
+    return result;
+  }
+
+  @Post(":id/cancel")
+  @Roles("COMPANY_OWNER", "COMPANY_ADMIN", "MANAGER")
+  @ApiOperation({ summary: "Cancel a sale order" })
+  async cancel(
+    @Param("companyId") companyId: string,
+    @Param("id") id: string,
+    @Body() body: { reason?: string },
+  ) {
+    return this.salesService.cancel(companyId, id, body?.reason || "Cancelamento Manual");
   }
 
   @Get(":id")

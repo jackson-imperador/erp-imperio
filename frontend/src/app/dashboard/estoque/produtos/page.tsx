@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { InventoryItem, InventoryFilters } from '@/types/inventory';
 import { FileDown, Filter, Settings2 } from 'lucide-react';
+import { exportToCsv } from '@/utils/exportCsv';
 
 export default function ProdutosEstoquePage() {
   const [filters, setFilters] = useState<InventoryFilters>({});
@@ -46,7 +47,7 @@ export default function ProdutosEstoquePage() {
           <Button variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)}>
             <Filter className="w-4 h-4 mr-2" />Filtros
           </Button>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={() => exportToCsv('estoque.csv', items)}>
             <FileDown className="w-4 h-4 mr-2" />Exportar
           </Button>
           <Link href="/dashboard/estoque/ajustes">

@@ -18,10 +18,10 @@ import { Roles } from "../../common/decorators/roles.decorator";
 import { PaginationQueryDto } from "../../common/dto/pagination-query.dto";
 import { PayableStatus } from "@prisma/client";
 
-@ApiTags("Financial - Payables")
+@ApiTags("Financial - Accounts Payable")
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Controller("api/v1/companies/:companyId/financial/payables")
+@Controller("companies/:companyId/financial/payables")
 export class AccountsPayableController {
   constructor(private readonly apService: AccountsPayableService) {}
 
@@ -44,7 +44,7 @@ export class AccountsPayableController {
     @Body() dto: PayPayableDto,
     @Req() req: any,
   ) {
-    const userId = req.user.sub;
+    const userId = req.user.id;
     return this.apService.pay(companyId, id, dto, userId);
   }
 
@@ -68,5 +68,16 @@ export class AccountsPayableController {
     @Param("id") id: string,
   ) {
     return this.apService.findById(companyId, id);
+  }
+
+  @Post(":id/cancel")
+  @Roles("COMPANY_OWNER", "COMPANY_ADMIN", "MANAGER")
+  @ApiOperation({ summary: "Cancel a payable" })
+  async cancel(
+    @Param("companyId") companyId: string,
+    @Param("id") id: string,
+    @Body("reason") reason?: string,
+  ) {
+    return this.apService.cancel(companyId, id, reason);
   }
 }

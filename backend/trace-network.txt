@@ -1,0 +1,5 @@
+--- BROWSER NETWORK REQUEST EMULATION ---
+User: gerente@demo.com
+Request URL: http://localhost:3001/api/v1/companies/company-demo/inventory/products
+HTTP Error: Request failed with status code 401
+Response Data: {"success":false,"errorId":"b639a3c5-f79e-4b8b-9f92-d0f99ee97cf7","statusCode":401,"timestamp":"2026-07-15T23:41:55.864Z","path":"/api/v1/companies/company-demo/inventory/products","method":"GET","correlationId":"b639a3c5-f79e-4b8b-9f92-d0f99ee97cf7","message":"Unauthorized"}

@@ -8,16 +8,43 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { useState } from 'react';
 
+import { api } from '@/lib/axios';
+
 export default function ConfiguracoesPage() {
   const [loading, setLoading] = useState(false);
 
-  const handleUpdateSecurity = (e: React.FormEvent) => {
+  const handleUpdateSecurity = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    
+    const formData = new FormData(e.currentTarget);
+    const currentPassword = formData.get('current_password') as string;
+    const newPassword = formData.get('new_password') as string;
+    const confirmPassword = formData.get('confirm_password') as string;
+
+    if (newPassword !== confirmPassword) {
+      toast.error('A nova senha e a confirmação não conferem.');
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      toast.error('A nova senha deve ter pelo menos 8 caracteres.');
+      return;
+    }
+
     setLoading(true);
-    setTimeout(() => {
-      toast.success('Credenciais de acesso atualizadas com sucesso!');
+    try {
+      await api.put('/users/me/password', {
+        currentPassword,
+        newPassword
+      });
+      toast.success('Senha atualizada com sucesso!');
+      (e.target as HTMLFormElement).reset();
+    } catch (error: any) {
+      const msg = error.response?.data?.message || 'Erro ao atualizar a senha.';
+      toast.error(msg);
+    } finally {
       setLoading(false);
-    }, 800);
+    }
   };
 
   return (
@@ -87,15 +114,15 @@ export default function ConfiguracoesPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="current_password">Senha Atual</Label>
-                  <Input id="current_password" type="password" placeholder="Digite sua senha atual" required />
+                  <Input id="current_password" name="current_password" type="password" placeholder="Digite sua senha atual" required />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="new_password">Nova Senha</Label>
-                  <Input id="new_password" type="password" placeholder="Digite a nova senha" required />
+                  <Input id="new_password" name="new_password" type="password" placeholder="Digite a nova senha" required />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="confirm_password">Confirmar Nova Senha</Label>
-                  <Input id="confirm_password" type="password" placeholder="Confirme a nova senha" required />
+                  <Input id="confirm_password" name="confirm_password" type="password" placeholder="Confirme a nova senha" required />
                 </div>
                 <div className="pt-4">
                   <Button type="submit" disabled={loading}>

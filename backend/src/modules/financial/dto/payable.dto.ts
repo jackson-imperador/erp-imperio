@@ -4,8 +4,9 @@ import {
   IsNumber,
   IsEnum,
   IsUUID,
-  IsDateString,
+  IsDate,
 } from "class-validator";
+import { Type } from "class-transformer";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { PayableStatus, PaymentMethod } from "@prisma/client";
 
@@ -34,7 +35,8 @@ export class CreatePayableDto {
   amount: number;
 
   @ApiProperty()
-  @IsDateString()
+  @Type(() => Date)
+  @IsDate()
   dueDate: Date;
 }
 

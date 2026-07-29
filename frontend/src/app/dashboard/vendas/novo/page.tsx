@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useSalesMutations } from '@/hooks/useSales';
 import { useCrud } from '@/hooks/useCrud';
+import { useAuthStore } from '@/store/authStore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -32,9 +33,19 @@ type OrderFormData = z.infer<typeof orderSchema>;
 
 export default function NovaVendaPage() {
   const router = useRouter();
+  const companyId = useAuthStore((s) => s.user?.companyId || '');
   const { createOrder } = useSalesMutations();
-  const { items: customers } = useCrud<{ id: string; name: string }>('/customers', ['customers']);
-  const { items: products } = useCrud<{ id: string; name: string; price: number }>('/products', ['products']);
+  
+  // Real API calls passing the companyId
+  const { items: customers } = useCrud<{ id: string; name: string }>(`/company/${companyId}/customers`, ['customers', companyId]);
+  
+  // Fetching inventory products to display in dropdown
+  const { items: inventoryLevels } = useCrud<{ 
+    id: string; 
+    productId: string; 
+    quantity: number; 
+    product?: { name: string; salePrice: number } 
+  }>(`/companies/${companyId}/inventory/levels`, ['inventory', companyId]);
 
   const {
     register,
@@ -166,9 +177,14 @@ export default function NovaVendaPage() {
                     className="w-full mt-1 rounded-md border border-zinc-300 dark:border-zinc-700 p-2 text-sm bg-white dark:bg-zinc-900"
                   >
                     <option value="">Selecione</option>
-                    {products.map((p) => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
+                    {inventoryLevels.map((inv) => (
+                      <option key={inv.productId} value={inv.productId}>
+                        {inv.product?.name} (Estoque: {inv.quantity})
+                      </option>
                     ))}
+                    {inventoryLevels.length === 0 && (
+                      <option disabled>Nenhum produto em estoque</option>
+                    )}
                   </select>
                   {errors.items?.[index]?.productId && (
                     <span className="text-red-500 text-xs">{errors.items[index].productId?.message}</span>

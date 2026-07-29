@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Employee, HrFilters } from '@/types/hr';
 import { FileDown, Filter, UserPlus } from 'lucide-react';
+import { exportToCsv } from '@/utils/exportCsv';
 
 export default function FuncionariosPage() {
   const [filters, setFilters] = useState<HrFilters>({});
@@ -45,7 +46,7 @@ export default function FuncionariosPage() {
           <Button variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)}>
             <Filter className="w-4 h-4 mr-2" />Filtros
           </Button>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={() => exportToCsv('funcionarios.csv', employees)}>
             <FileDown className="w-4 h-4 mr-2" />Exportar
           </Button>
           <Link href="/dashboard/rh/admissoes">

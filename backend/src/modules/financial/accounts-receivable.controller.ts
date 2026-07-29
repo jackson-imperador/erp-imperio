@@ -21,7 +21,7 @@ import { ReceivableStatus } from "@prisma/client";
 @ApiTags("Financial - Receivables")
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Controller("api/v1/companies/:companyId/financial/receivables")
+@Controller("companies/:companyId/financial/receivables")
 export class AccountsReceivableController {
   constructor(private readonly arService: AccountsReceivableService) {}
 
@@ -44,7 +44,7 @@ export class AccountsReceivableController {
     @Body() dto: PayReceivableDto,
     @Req() req: any,
   ) {
-    const userId = req.user.sub;
+    const userId = req.user.id;
     return this.arService.pay(companyId, id, dto, userId);
   }
 
@@ -68,5 +68,16 @@ export class AccountsReceivableController {
     @Param("id") id: string,
   ) {
     return this.arService.findById(companyId, id);
+  }
+
+  @Post(":id/cancel")
+  @Roles("COMPANY_OWNER", "COMPANY_ADMIN", "MANAGER")
+  @ApiOperation({ summary: "Cancel a receivable" })
+  async cancel(
+    @Param("companyId") companyId: string,
+    @Param("id") id: string,
+    @Body("reason") reason?: string,
+  ) {
+    return this.arService.cancel(companyId, id, reason);
   }
 }

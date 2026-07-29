@@ -6,6 +6,7 @@ import {
   PurchaseCreatedEvent,
   PurchaseReceivedEvent,
 } from "./events/purchase-events";
+import { ImportPurchaseXmlDto } from "./dto/import-purchase-xml.dto";
 
 @Injectable()
 export class PurchasingService {
@@ -63,5 +64,20 @@ export class PurchasingService {
     search?: string,
   ) {
     return this.purchasingRepository.findAll(companyId, skip, take, search);
+  }
+
+  async importXml(
+    companyId: string,
+    dto: ImportPurchaseXmlDto,
+    createdBy: string,
+  ) {
+    const result = await this.purchasingRepository.importXml(companyId, dto, createdBy);
+
+    this.eventEmitter.emit(
+      "purchase.received",
+      new PurchaseReceivedEvent(companyId, result.order.id),
+    );
+
+    return result;
   }
 }

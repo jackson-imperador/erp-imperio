@@ -27,19 +27,19 @@ export class UserController {
   @Get("me")
   @ApiOperation({ summary: "Get current user profile" })
   async getProfile(@Req() req) {
-    return this.userService.getProfile(req.user.sub);
+    return this.userService.getProfile(req.user.id);
   }
 
   @Put("me")
   @ApiOperation({ summary: "Update current user profile" })
   async updateProfile(@Req() req, @Body() dto: UpdateUserDto) {
-    return this.userService.updateProfile(req.user.sub, dto);
+    return this.userService.updateProfile(req.user.id, dto);
   }
 
   @Put("me/password")
   @ApiOperation({ summary: "Change password" })
   async changePassword(@Req() req, @Body() dto: ChangePasswordDto) {
-    return this.userService.changePassword(req.user.sub, dto);
+    return this.userService.changePassword(req.user.id, dto);
   }
 
   // Tenant specifics (Should be guarded by RBAC, omitted for brevity here, assumed handled by interceptor/middleware)
@@ -66,6 +66,6 @@ export class UserController {
     @Param("companyId") companyId: string,
     @Body() dto: InviteUserDto,
   ) {
-    return this.userService.inviteUser(companyId, req.user.sub, dto);
+    return this.userService.inviteUser(companyId, req.user.id, dto);
   }
 }

@@ -8,16 +8,16 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/80",
+        default: "bg-primary text-primary-foreground hover:bg-primary/90 shadow-[0_0_15px_rgba(201,148,26,0.2)] hover:shadow-[0_0_20px_rgba(201,148,26,0.4)] transition-all duration-300",
         outline:
-          "border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
+          "border border-primary/30 bg-background/40 backdrop-blur-sm hover:border-primary hover:bg-primary/10 hover:text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-all duration-300 aria-expanded:bg-muted aria-expanded:text-foreground",
         secondary:
-          "bg-secondary text-secondary-foreground hover:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_5%)] aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
+          "bg-secondary/60 text-secondary-foreground backdrop-blur-md border border-secondary/50 hover:bg-secondary/80 hover:border-secondary shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-all duration-300 aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
         ghost:
-          "hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50",
+          "hover:bg-primary/10 hover:text-primary aria-expanded:bg-muted aria-expanded:text-foreground transition-all duration-300",
         destructive:
-          "bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
-        link: "text-primary underline-offset-4 hover:underline",
+          "bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive/20 hover:border-destructive/40 shadow-[0_0_10px_rgba(239,68,68,0.1)] hover:shadow-[0_0_15px_rgba(239,68,68,0.2)] focus-visible:border-destructive/40 focus-visible:ring-destructive/20 transition-all duration-300",
+        link: "text-primary underline-offset-4 hover:underline transition-all duration-300",
       },
       size: {
         default:

@@ -111,4 +111,19 @@ export class AccountsPayableService {
 
     return { data, total, skip, take };
   }
+
+  async cancel(companyId: string, id: string, reason?: string) {
+    const payable = await this.prisma.accountsPayable.findFirst({
+      where: { id, companyId },
+    });
+    if (!payable) throw new NotFoundException("Payable not found");
+    if (payable.status === PayableStatus.PAID) {
+      throw new BadRequestException("Cannot cancel a fully paid payable");
+    }
+
+    return this.prisma.accountsPayable.update({
+      where: { id },
+      data: { status: PayableStatus.CANCELLED },
+    });
+  }
 }

@@ -9,6 +9,7 @@ export interface IUserRepository {
   }): Promise<{ data: any[]; total: number }>;
   findById(id: string): Promise<User | null>;
   findByEmail(email: string): Promise<User | null>;
+  createUser(data: Partial<User>): Promise<User>;
   findCompanyMembers(
     companyId: string,
     params: any,
