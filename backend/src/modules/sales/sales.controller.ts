@@ -12,6 +12,7 @@ import {
 import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
 import { SalesService } from "./sales.service";
 import { CreateSaleOrderDto } from "./dto/create-sale-order.dto";
+import { CancelSaleOrderDto } from "./dto/cancel-sale-order.dto";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
 import { Roles } from "../../common/decorators/roles.decorator";
@@ -71,7 +72,7 @@ export class SalesController {
   async cancel(
     @Param("companyId") companyId: string,
     @Param("id") id: string,
-    @Body() body: { reason?: string },
+    @Body() body: CancelSaleOrderDto,
   ) {
     return this.salesService.cancel(companyId, id, body?.reason || "Cancelamento Manual");
   }
