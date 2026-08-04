@@ -20,7 +20,6 @@ import { PaginationQueryDto } from "../../common/dto/pagination-query.dto";
 
 @ApiTags("Sales")
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller("companies/:companyId/sales/orders")
 export class SalesController {
   constructor(private readonly salesService: SalesService) {}
