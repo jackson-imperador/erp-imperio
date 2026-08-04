@@ -10,7 +10,7 @@ export default function DashboardOverview() {
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-zinc-900 dark:text-white">ERP IMPERIO BUILD TEST 999</h1>
+        <h1 className="text-2xl font-bold text-zinc-900 dark:text-white">Visão Geral</h1>
         <div className="space-y-4">
           <Skeleton className="h-32 w-full rounded-xl" />
           <Skeleton className="h-80 w-full rounded-xl" />
@@ -21,7 +21,7 @@ export default function DashboardOverview() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-zinc-900 dark:text-white">ERP IMPERIO BUILD TEST 999</h1>
+      <h1 className="text-2xl font-bold text-zinc-900 dark:text-white">Visão Geral</h1>
       
       {/* Real Stats Cards directly from database */}
       <KPIGrid kpis={metrics?.kpis || []} />
