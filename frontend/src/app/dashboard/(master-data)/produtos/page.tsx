@@ -14,7 +14,7 @@ import { useAuthStore } from '@/store/authStore';
 
 export default function ProdutosPage() {
   const companyId = useAuthStore(s => s.user?.companyId || '');
-  const { items, isLoading, create, update, remove, isMutating } = useCrud<any>(`/company/${companyId}/catalog/products`, ['produtos', companyId]);
+  const { items, isLoading, create, update, remove, isMutating } = useCrud<any>(`/company/${companyId}/catalog/products?perPage=1000`, ['produtos', companyId]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [formData, setFormData] = useState<any>({});

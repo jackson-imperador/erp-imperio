@@ -38,7 +38,8 @@ export function useCrud<T>(endpoint: string, queryKey: string[]) {
     mutationFn: async ({ id, data }: { id: string; data: any }) => {
       const hasPrefix = endpoint.startsWith('/companies') || endpoint.startsWith('/company');
       const url = hasPrefix ? endpoint : `/companies/${companyId}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
-      const { data: res } = await api.put(`${url}/${id}`, data);
+      const baseUrl = url.split('?')[0];
+      const { data: res } = await api.put(`${baseUrl}/${id}`, data);
       return res;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: [...queryKey, companyId] })
@@ -48,7 +49,8 @@ export function useCrud<T>(endpoint: string, queryKey: string[]) {
     mutationFn: async (id: string) => {
       const hasPrefix = endpoint.startsWith('/companies') || endpoint.startsWith('/company');
       const url = hasPrefix ? endpoint : `/companies/${companyId}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
-      const { data } = await api.delete(`${url}/${id}`);
+      const baseUrl = url.split('?')[0];
+      const { data } = await api.delete(`${baseUrl}/${id}`);
       return data;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: [...queryKey, companyId] })
