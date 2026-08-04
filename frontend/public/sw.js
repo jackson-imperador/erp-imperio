@@ -1,74 +1,39 @@
-const CACHE_NAME = 'imperio-erp-v1';
+/**
+ * Império ERP — Service Worker Mínimo (PWA Install Only)
+ * 
+ * INTENÇÃO: Este SW existe exclusivamente para satisfazer os critérios de
+ * instalabilidade do PWA (Chrome, Edge, Safari, Firefox).
+ * 
+ * NÃO implementa:
+ *   - Cache de API
+ *   - Cache de páginas / assets estáticos
+ *   - Modo offline
+ *   - Background Sync
+ *   - Push Notifications
+ * 
+ * Todas as requisições passam diretamente para a rede (passthrough).
+ */
 
-const INITIAL_CACHED_RESOURCES = [
-  '/',
-  '/login',
-  '/dashboard',
-  '/manifest.json'
-];
+const SW_VERSION = 'imperio-erp-pwa-v1';
 
+// Install: ativa imediatamente, sem pré-cache
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(INITIAL_CACHED_RESOURCES);
-    })
-  );
   self.skipWaiting();
 });
 
+// Activate: remove caches antigos (de versões anteriores do SW), assume controle
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
-        cacheNames
-          .filter((name) => name !== CACHE_NAME)
-          .map((name) => caches.delete(name))
+        cacheNames.map((name) => caches.delete(name))
       );
-    })
+    }).then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
+// Fetch: passthrough — NENHUMA interceptação, NENHUM cache
+// Todas as requisições (API, páginas, assets) vão direto para a rede
 self.addEventListener('fetch', (event) => {
-  const { request } = event;
-  
-  // Api calls should use Network First, then fallback to offline handling (in React Query)
-  if (request.url.includes('/api/')) {
-    event.respondWith(
-      fetch(request).catch(() => {
-        return new Response(JSON.stringify({ error: 'Offline' }), {
-          headers: { 'Content-Type': 'application/json' },
-          status: 503
-        });
-      })
-    );
-    return;
-  }
-
-  // Static assets and pages: Stale-While-Revalidate
-  event.respondWith(
-    caches.match(request).then((cachedResponse) => {
-      const fetchPromise = fetch(request).then((networkResponse) => {
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(request, networkResponse.clone());
-        });
-        return networkResponse;
-      }).catch(() => {
-        // Ignored or handle offline fallback page
-      });
-      return cachedResponse || fetchPromise;
-    })
-  );
+  // Não chama event.respondWith() — deixa o browser tratar normalmente
 });
-
-// Background Sync for Offline Mutations
-self.addEventListener('sync', (event) => {
-  if (event.tag === 'sync-mutations') {
-    event.waitUntil(syncMutations());
-  }
-});
-
-async function syncMutations() {
-  // Logic to process offline queue
-  // Implemented via React Query Offline Mutate logic in the frontend
-}

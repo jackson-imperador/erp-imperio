@@ -17,7 +17,9 @@ export function Header() {
           </div>
           <div className="flex flex-col">
             <span className="text-sm font-medium text-zinc-700 dark:text-zinc-200">{user?.name || 'Administrador'}</span>
-            <span className="text-xs text-zinc-500">{user?.role || 'System Admin'}</span>
+            <span className="text-xs text-zinc-500">
+              {user?.role === 'EMPLOYEE' ? 'FUNCIONÁRIO' : (user?.role || 'System Admin')}
+            </span>
           </div>
         </div>
       </div>
