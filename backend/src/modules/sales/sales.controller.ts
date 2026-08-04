@@ -72,9 +72,9 @@ export class SalesController {
   async cancel(
     @Param("companyId") companyId: string,
     @Param("id") id: string,
-    @Body() body: CancelSaleOrderDto,
+    @Req() req: any,
   ) {
-    return this.salesService.cancel(companyId, id, body?.reason || "Cancelamento Manual");
+    return this.salesService.cancel(companyId, id, req.body?.reason || "Cancelamento Manual");
   }
 
   @Get(":id")
