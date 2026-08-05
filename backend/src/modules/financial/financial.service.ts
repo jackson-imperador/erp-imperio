@@ -52,7 +52,7 @@ export class FinancialService {
     const receivables = await this.prisma.accountsReceivable.findMany({ where: { companyId } });
     const payables = await this.prisma.accountsPayable.findMany({ where: { companyId } });
     const transactions = await this.prisma.financialTransaction.findMany({ 
-      where: { companyId },
+      where: { companyId, status: 'COMPLETED' },
       orderBy: { createdAt: 'asc' }
     });
 
@@ -114,7 +114,7 @@ export class FinancialService {
 
     // V2.5 - Separação financeira de pagamentos recebidos (PDV)
     const salePayments = await this.prisma.salePayment.findMany({
-      where: { saleOrder: { companyId } }
+      where: { saleOrder: { companyId, status: { in: ['CONFIRMED', 'COMPLETED'] } } }
     });
 
     const paymentBreakdown: Record<string, number> = {};

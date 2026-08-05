@@ -16,6 +16,8 @@ export function useInventoryDashboard() {
     queryKey: [QK_DASHBOARD, companyId],
     queryFn: () => inventoryService.getDashboard(companyId),
     enabled: !!companyId,
+    staleTime: 0,
+    refetchOnMount: true,
   });
 }
 
