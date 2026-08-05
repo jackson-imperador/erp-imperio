@@ -10,6 +10,7 @@ import {
   Prisma,
   StockMovementType,
   ReceivableStatus,
+  TransactionStatus,
 } from "@prisma/client";
 
 @Injectable()
@@ -225,24 +226,104 @@ export class SalesRepository {
   }
 
   async cancel(companyId: string, id: string, reason: string) {
-    const order = await this.prisma.saleOrder.findFirst({
-      where: { id, companyId },
-    });
+    return this.prisma.$transaction(async (tx) => {
+      const order = await tx.saleOrder.findFirst({
+        where: { id, companyId },
+        include: { items: true, receivables: true }
+      });
 
-    if (!order) throw new NotFoundException("SaleOrder not found");
+      if (!order) throw new NotFoundException("SaleOrder not found");
 
-    if (order.status === SaleStatus.CANCELLED) {
-      throw new BadRequestException("Order is already cancelled");
-    }
+      if (order.status === SaleStatus.CANCELLED) {
+        throw new BadRequestException("Order is already cancelled");
+      }
 
-    return this.prisma.saleOrder.update({
-      where: { id },
-      data: {
-        status: SaleStatus.CANCELLED,
-        notes: order.notes
-          ? `${order.notes} | Cancelado: ${reason}`
-          : `Cancelado: ${reason}`,
-      },
+      // 1. Mark SaleOrder as CANCELLED
+      const updatedOrder = await tx.saleOrder.update({
+        where: { id },
+        data: {
+          status: SaleStatus.CANCELLED,
+          cancellationReason: reason,
+          cancelledAt: new Date(),
+          notes: order.notes
+            ? `${order.notes} | Cancelado: ${reason}`
+            : `Cancelado: ${reason}`,
+        },
+      });
+
+      // 2. Revert Inventory (If it was previously confirmed/completed)
+      if (order.status === SaleStatus.CONFIRMED || order.status === 'COMPLETED') {
+        for (const item of order.items) {
+          const warehouse = await tx.warehouse.findFirst({
+            where: { companyId, isActive: true },
+          });
+          if (warehouse) {
+             await tx.stockMovement.create({
+               data: {
+                 companyId,
+                 warehouseId: warehouse.id,
+                 productId: item.productId,
+                 type: StockMovementType.RETURN,
+                 quantity: item.quantity,
+                 referenceId: order.id,
+                 referenceType: "SALE_CANCEL",
+                 performedBy: "SYSTEM",
+               }
+             });
+
+             const currentLevel = await tx.inventoryLevel.findUnique({
+               where: { warehouseId_productId: { warehouseId: warehouse.id, productId: item.productId } }
+             });
+             
+             if (currentLevel) {
+               await tx.inventoryLevel.update({
+                 where: { warehouseId_productId: { warehouseId: warehouse.id, productId: item.productId } },
+                 data: { quantity: { increment: item.quantity } }
+               });
+             }
+          }
+        }
+      }
+
+      // 3. Reverse Accounts Receivable and Financial Transactions
+      for (const rec of order.receivables) {
+         await tx.accountsReceivable.update({
+           where: { id: rec.id },
+           data: { status: ReceivableStatus.CANCELLED, balanceDue: 0 }
+         });
+
+         // 4. Reverse Financial Transactions linked to this Receivable
+         await tx.financialTransaction.updateMany({
+           where: { companyId, referenceId: rec.id, referenceType: "ACCOUNTS_RECEIVABLE" },
+           data: { status: TransactionStatus.CANCELLED } 
+         });
+      }
+
+      // 5. Reverse CashDrawerMovements (PDV Caixa Livre)
+      const pdvMovements = await tx.cashDrawerMovement.findMany({
+         where: { companyId, description: { contains: order.orderNumber } }
+      });
+
+      for (const mov of pdvMovements) {
+         if (mov.type === 'SALE' || mov.type === 'SUPPLY') {
+            await tx.cashDrawerMovement.create({
+              data: {
+                companyId,
+                cashDrawerId: mov.cashDrawerId,
+                type: 'WITHDRAWAL',
+                amount: mov.amount,
+                description: `Estorno Venda #${order.orderNumber}`,
+                performedBy: "SYSTEM",
+              }
+            });
+            await tx.cashDrawer.update({
+              where: { id: mov.cashDrawerId },
+              data: { currentBalance: { decrement: mov.amount } }
+            });
+         }
+      }
+
+      return updatedOrder;
     });
   }
 

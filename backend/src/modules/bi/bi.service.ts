@@ -27,7 +27,7 @@ export class BiService {
 
     const [transactions, sales, customers, fullStock] = await Promise.all([
       this.prisma.financialTransaction.findMany({ 
-        where: { companyId, createdAt: { gte: start, lte: end } } 
+        where: { companyId, createdAt: { gte: start, lte: end }, status: 'COMPLETED' } 
       }),
       this.prisma.saleOrder.findMany({ 
         where: { companyId, createdAt: { gte: start, lte: end }, status: { in: ['CONFIRMED', 'COMPLETED'] } },
@@ -122,7 +122,7 @@ export class BiService {
     const { start, end } = this.getDateRange(filters);
 
     const transactions = await this.prisma.financialTransaction.findMany({ 
-      where: { companyId, createdAt: { gte: start, lte: end } } 
+      where: { companyId, createdAt: { gte: start, lte: end }, status: 'COMPLETED' } 
     });
     
     const receivables = await this.prisma.accountsReceivable.findMany({ 
