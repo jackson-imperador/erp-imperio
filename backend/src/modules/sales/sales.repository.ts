@@ -310,11 +310,15 @@ export class SalesRepository {
               data: {
                 companyId,
                 cashDrawerId: mov.cashDrawerId,
-                type: 'WITHDRAWAL',
+                type: 'CANCELLATION',
                 amount: mov.amount,
                 description: `Estorno Venda #${order.orderNumber}`,
                 performedBy: "SYSTEM",
               }
+            });
+            await tx.cashDrawerMovement.update({
+              where: { id: mov.id },
+              data: { type: 'CANCELLED_SALE' }
             });
             await tx.cashDrawer.update({
               where: { id: mov.cashDrawerId },
