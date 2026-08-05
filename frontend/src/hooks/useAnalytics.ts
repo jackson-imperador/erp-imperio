@@ -17,6 +17,8 @@ export function useExecutiveDashboard(filters?: BiFilters) {
     queryKey: [QK_EXEC, companyId, filters],
     queryFn: () => analyticsService.getExecutiveDashboard(companyId, filters),
     enabled: !!companyId,
+    staleTime: 0,
+    refetchOnMount: true,
   });
 }
 
@@ -26,6 +28,8 @@ export function useFinancialDashboard(filters?: BiFilters) {
     queryKey: [QK_FIN, companyId, filters],
     queryFn: () => analyticsService.getFinancialDashboard(companyId, filters),
     enabled: !!companyId,
+    staleTime: 0,
+    refetchOnMount: true,
   });
 }
 
@@ -53,6 +57,7 @@ export function useFiscalDashboard(filters?: BiFilters) {
     queryKey: [QK_FISC, companyId, filters],
     queryFn: () => analyticsService.getFiscalDashboard(companyId, filters),
     enabled: !!companyId,
+    staleTime: 0,
   });
 }
 

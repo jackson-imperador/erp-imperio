@@ -83,6 +83,8 @@ export function useDrawerSummary(drawerId: string) {
     queryFn: () => pdvService.getDrawerSummary(companyId, drawerId),
     enabled: !!companyId && !!drawerId,
     refetchInterval: 10000, // atualiza a cada 10s
+    staleTime: 0,
+    refetchOnMount: true,
   });
 }
 

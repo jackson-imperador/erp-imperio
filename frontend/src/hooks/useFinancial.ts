@@ -13,6 +13,8 @@ export function useFinancialDashboard() {
     queryKey: [QK_DASHBOARD, companyId],
     queryFn: () => financialService.getDashboard(companyId),
     enabled: !!companyId,
+    staleTime: 0,
+    refetchOnMount: true,
   });
 }
 
