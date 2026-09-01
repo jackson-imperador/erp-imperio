@@ -16,7 +16,7 @@ services:
       POSTGRES_PASSWORD: secret
       POSTGRES_DB: imperio_erp
     ports:
-      - "5432:5432"
+      - "55432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro

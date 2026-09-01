@@ -34,6 +34,8 @@ export interface InventoryItem {
   minimumQuantity: number;
   maximumQuantity?: number;
   averageCost: number;
+  costPrice: number;
+  salePrice: number;
   totalValue: number;
   status: StockStatus;
   warehouseId: string;

@@ -103,11 +103,19 @@ export default function FichaProdutoPage({ params }: { params: Promise<{ id: str
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between">
                   <span className="text-zinc-500">Custo Médio Unitário</span>
-                  <span className="font-medium">R$ {item.averageCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  <span className="font-medium">R$ {item.averageCost?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-zinc-500">Valor de Compra (Pago)</span>
+                  <span className="font-medium">R$ {item.costPrice?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-zinc-500">Valor de Venda</span>
+                  <span className="font-medium text-emerald-600 dark:text-emerald-400">R$ {item.salePrice?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}</span>
                 </div>
                 <div className="flex justify-between border-t border-zinc-100 dark:border-zinc-800 pt-3">
                   <span className="text-zinc-500">Custo Total (Inventário)</span>
-                  <span className="font-bold text-emerald-500">R$ {item.totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  <span className="font-bold text-emerald-500">R$ {item.totalValue?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}</span>
                 </div>
               </div>
             </div>
