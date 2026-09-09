@@ -1,4 +1,4 @@
-﻿-- Migration: add_monthly_closing
+-- Migration: add_monthly_closing
 -- Compatible with PostgreSQL 15
 -- DO NOT apply directly to production. Use: npx prisma migrate deploy
 
