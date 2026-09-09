@@ -4,6 +4,7 @@ import { use, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSalesOrder, useSalesTimeline, useSalesMutations } from '@/hooks/useSales';
+import { useAuthStore } from '@/store/authStore';
 import { StatusBadge } from '@/components/sales/SalesWidgets';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -38,7 +39,13 @@ export default function SaleDetailPage({ params }: { params: Promise<{ id: strin
     }
   };
 
+  const user = useAuthStore(s => s.user);
+
   const handleCancel = async () => {
+    if (user?.role === 'EMPLOYEE' || user?.role === 'VIEWER') {
+      toast.error('Você não tem permissão para cancelar vendas. Solicite a um administrador.');
+      return;
+    }
     try {
       await cancelOrder.mutateAsync({ id, reason: cancelReason });
       toast.success('Pedido cancelado.');

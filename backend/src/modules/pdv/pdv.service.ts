@@ -23,14 +23,14 @@ export class PdvService {
         where: {
           companyId,
           createdAt: { gte: today },
-          status: 'CONFIRMED'
+          status: { in: ['CONFIRMED', 'COMPLETED'] }
         }
       }),
       this.prisma.saleOrder.aggregate({
         where: {
           companyId,
           createdAt: { gte: today },
-          status: 'CONFIRMED'
+          status: { in: ['CONFIRMED', 'COMPLETED'] }
         },
         _sum: { totalAmount: true }
       }),
@@ -214,6 +214,13 @@ export class PdvService {
         unitPrice: item.unitPrice,
         discountPct: item.discount ? (item.discount / (item.unitPrice * item.quantity)) * 100 : 0
       })),
+      discounts: dto.globalDiscount ? [{
+        type: dto.globalDiscount.type as any,
+        scope: 'SALE' as any,
+        description: dto.globalDiscount.reason || 'Desconto Global PDV',
+        percentage: dto.globalDiscount.type === 'PERCENTAGE' ? dto.globalDiscount.value : undefined,
+        amount: dto.globalDiscount.type === 'FIXED' ? dto.globalDiscount.value : undefined,
+      }] : [],
       payments: dto.payments.map(p => ({
         method: this.mapPaymentMethod(p.method),
         amount: p.amount,
@@ -358,9 +365,12 @@ export class PdvService {
     const sangrias = movements.filter(m => m.type === 'SANGRIA' || m.type === 'WITHDRAWAL');
     const totalSangrias = sangrias.reduce((acc, m) => acc + Number(m.amount), 0);
 
-    // Suprimentos
+    // Suprimentos e Saldo Inicial
+    const abertura = movements.find(m => m.type === 'SUPPLY' && m.description === 'Abertura de Caixa (Saldo Inicial)');
+    const saldoInicial = abertura ? Number(abertura.amount) : 0;
+    
     const suprimentos = movements.filter(m => m.type === 'SUPPLY');
-    const totalSuprimentos = suprimentos.reduce((acc, m) => acc + Number(m.amount), 0);
+    const totalSuprimentos = suprimentos.reduce((acc, m) => acc + Number(m.amount), 0) - saldoInicial;
 
     return {
       drawer: {
@@ -370,6 +380,7 @@ export class PdvService {
         openedAt: drawer.openedAt,
         currentBalance: Number(drawer.currentBalance),
       },
+      saldoInicial,
       totalVendas,
       totalDescontos,
       totalAcrescimos,

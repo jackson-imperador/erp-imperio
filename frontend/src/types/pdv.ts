@@ -106,6 +106,7 @@ export interface DrawerSummary {
     openedAt?: string;
     currentBalance: number;
   };
+  saldoInicial: number;
   totalVendas: number;
   totalDescontos: number;
   totalAcrescimos: number;

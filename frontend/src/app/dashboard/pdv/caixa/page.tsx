@@ -838,7 +838,7 @@ export default function FrenteDeCaixaPage() {
                   ['Operador', user?.name || 'Admin'],
                   [''],
                   ['MÉTRICA', 'VALOR'],
-                  ['Saldo Inicial', (drawerSummary.drawer.currentBalance - drawerSummary.totalVendas + drawerSummary.totalSangrias - drawerSummary.totalSuprimentos).toFixed(2)],
+                  ['Saldo Inicial', drawerSummary.saldoInicial.toFixed(2)],
                   ['Total Vendido', drawerSummary.totalVendas.toFixed(2)],
                   ['Total Descontos', drawerSummary.totalDescontos.toFixed(2)],
                   ['Sangrias', drawerSummary.totalSangrias.toFixed(2)],
@@ -908,7 +908,7 @@ export default function FrenteDeCaixaPage() {
           scrollbarWidth: 'none',
         }}>
           {[
-            { label: 'Saldo Inicial', value: fmt2(drawerSummary.drawer.currentBalance - drawerSummary.totalVendas + drawerSummary.totalSangrias - drawerSummary.totalSuprimentos), color: G.muted },
+            { label: 'Saldo Inicial', value: fmt2(drawerSummary.saldoInicial), color: G.muted },
             { label: 'Entradas', value: fmt2(drawerSummary.totalVendas + drawerSummary.totalSuprimentos), color: G.green },
             { label: 'Sangrias', value: fmt2(drawerSummary.totalSangrias), color: G.amber },
             { label: 'Descontos', value: fmt2(drawerSummary.totalDescontos), color: G.red },
@@ -1113,8 +1113,8 @@ export default function FrenteDeCaixaPage() {
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
                   {[
-                    { label: 'Saldo Inicial', value: fmt2(drawerSummary.drawer.currentBalance - drawerSummary.totalVendas + drawerSummary.totalSangrias - drawerSummary.totalSuprimentos), color: G.muted },
-                    { label: 'Total Vendido', value: fmt2(drawerSummary.totalVendas), color: G.green },
+                    { label: 'Saldo Inicial', value: fmt2(drawerSummary.saldoInicial), color: G.muted },
+                    { label: 'Entradas', value: fmt2(drawerSummary.totalVendas + drawerSummary.totalSuprimentos), color: G.green },
                     { label: 'Descontos', value: fmt2(drawerSummary.totalDescontos), color: G.red },
                     { label: 'Sangrias', value: fmt2(drawerSummary.totalSangrias), color: G.amber },
                     { label: 'Lucro Bruto', value: fmt2(drawerSummary.grossProfit), color: G.goldL },
@@ -1643,7 +1643,13 @@ export default function FrenteDeCaixaPage() {
                   { label: 'Pagamento',  icon: DollarSign, color: G.green,  bg: 'rgba(16,185,129,0.08)', brd: 'rgba(16,185,129,0.28)', fn: () => document.getElementById('received-amount-input')?.focus(), key: 'F4' },
                   { label: 'Desconto',   icon: TrendingDown, color: G.goldL, bg: G.goldBg,      brd: G.borderG,   fn: () => setShowDiscountModal(true), key: 'F6' },
                   { label: 'Sangria',    icon: DollarSign, color: G.amber,  bg: 'rgba(245,158,11,0.08)',brd: 'rgba(245,158,11,0.28)', fn: () => setShowSangriaModal(true), key: 'F7' },
-                  { label: 'Cancelar',   icon: X,          color: G.red,    bg: G.redBg,        brd: G.redBrd,    fn: () => { setCart([]); setSelectedPayments([]); setGlobalDiscountState(null); toast.info('Venda cancelada.'); }, key: 'ESC' },
+                  { label: 'Cancelar',   icon: X,          color: G.red,    bg: G.redBg,        brd: G.redBrd,    fn: () => { 
+                    if (user?.role === 'EMPLOYEE' || user?.role === 'VIEWER') {
+                      toast.error('Você não tem permissão para cancelar vendas. Solicite a um administrador.');
+                    } else {
+                      setCart([]); setSelectedPayments([]); setGlobalDiscountState(null); toast.info('Venda cancelada.'); 
+                    }
+                  }, key: 'ESC' },
                   { label: 'Gaveta',     icon: DoorOpen,   color: G.muted,  bg: '#1a1710',      brd: G.border,    fn: () => toast.success('Gaveta aberta!') },
                 ].map(({ label, icon: Icon, color, bg, brd, fn, key }) => (
                   <button key={label} onClick={fn}
