@@ -19,6 +19,7 @@ export interface BiDashboardMetrics {
   revenueData: ChartDataSeries;
   cashFlowData: ChartDataSeries;
   topProducts: { name: string; value: number }[];
+  topSellers?: { name: string; value: number }[];
   salesByRegion: { region: string; value: number }[];
   lastRefresh: string;
 }
