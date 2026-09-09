@@ -1,7 +1,8 @@
-﻿import {
+import {
   Controller,
   Get,
   Post,
+  Put,
   Body,
   Param,
   ParseIntPipe,
@@ -18,8 +19,8 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 export class MonthlyClosingController {
   constructor(private readonly service: MonthlyClosingService) {}
 
-  private getCompanyId(req: { user?: { companyId?: string } }): string {
-    const id = req.user?.companyId;
+  private getCompanyId(req: { user?: { activeCompanyId?: string; companyId?: string } }): string {
+    const id = req.user?.activeCompanyId || req.user?.companyId;
     if (!id) throw new Error('companyId ausente no token JWT.');
     return id;
   }
@@ -63,11 +64,12 @@ export class MonthlyClosingController {
   async close(
     @Param('year', ParseIntPipe) year: number,
     @Param('month', ParseIntPipe) month: number,
+    @Body('cashCounted') cashCounted: number,
     @Req() req: Express.Request,
   ) {
-    const companyId = this.getCompanyId(req as { user?: { companyId?: string } });
+    const companyId = this.getCompanyId(req as { user?: { companyId?: string, activeCompanyId?: string } });
     const userId = this.getUserId(req as { user?: { sub?: string; id?: string } });
-    return this.service.closeMonth(companyId, month, year, userId);
+    return this.service.closeMonth(companyId, month, year, userId, cashCounted);
   }
 
   /** POST /monthly-closing/:year/:month/reopen — reabre mês fechado */
@@ -79,8 +81,18 @@ export class MonthlyClosingController {
     @Body('reason') reason: string,
     @Req() req: Express.Request,
   ) {
-    const companyId = this.getCompanyId(req as { user?: { companyId?: string } });
+    const companyId = this.getCompanyId(req as { user?: { companyId?: string, activeCompanyId?: string } });
     const userId = this.getUserId(req as { user?: { sub?: string; id?: string } });
     return this.service.reopenMonth(companyId, month, year, userId, reason);
+  }
+
+  @Put('settings')
+  @HttpCode(HttpStatus.OK)
+  async updateSettings(
+    @Body() payload: any,
+    @Req() req: Express.Request,
+  ) {
+    const companyId = this.getCompanyId(req as { user?: { companyId?: string, activeCompanyId?: string } });
+    return this.service.updateSettings(companyId, payload);
   }
 }

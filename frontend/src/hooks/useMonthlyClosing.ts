@@ -1,4 +1,4 @@
-﻿import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/axios";
 
 export interface MonthlyClosingData {
@@ -58,6 +58,12 @@ export interface MonthlyClosingData {
     cogs: number;
     margin: number;
   }[];
+  paymentForms?: {
+    method: string;
+    amount: number;
+  }[];
+  cashCounted?: number;
+  cashDifference?: number;
   closedAt?: string;
   closedBy?: string;
 }
@@ -72,6 +78,7 @@ export function useMonthlyClosingPreview(month: number, year: number) {
       return data;
     },
     enabled: month >= 1 && month <= 12 && year >= 2000,
+    retry: 1, // Don't retry much for preview
   });
 }
 
@@ -85,29 +92,18 @@ export function useMonthlyClosingHistory() {
   });
 }
 
-export function useMonthlyClosingOne(month: number, year: number) {
-  return useQuery<MonthlyClosingData>({
-    queryKey: ["monthly-closing", month, year],
-    queryFn: async () => {
-      const { data } = await api.get(`/monthly-closing/${year}/${month}`);
-      return data;
-    },
-    enabled: month >= 1 && month <= 12 && year >= 2000,
-  });
-}
-
 export function useCloseMonth() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ month, year }: { month: number; year: number }) => {
+    mutationFn: async ({ month, year, cashCounted }: { month: number; year: number; cashCounted?: number }) => {
       const { data } = await api.post(
-        `/monthly-closing/${year}/${month}/close`
+        `/monthly-closing/${year}/${month}/close`,
+        { cashCounted }
       );
       return data;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["monthly-closing-history"] });
-      qc.invalidateQueries({ queryKey: ["monthly-closing"] });
       qc.invalidateQueries({ queryKey: ["monthly-closing-preview"] });
     },
   });
@@ -133,7 +129,20 @@ export function useReopenMonth() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["monthly-closing-history"] });
-      qc.invalidateQueries({ queryKey: ["monthly-closing"] });
+      qc.invalidateQueries({ queryKey: ["monthly-closing-preview"] });
+    },
+  });
+}
+
+export function useUpdateMonthlyClosingSettings() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: any) => {
+      const { data } = await api.put("/monthly-closing/settings", payload);
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["monthly-closing-preview"] });
     },
   });
 }

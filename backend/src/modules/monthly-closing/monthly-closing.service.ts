@@ -76,6 +76,19 @@ export class MonthlyClosingService {
   async preview(companyId: string, month: number, year: number) {
     const { start, end } = this.monthBounds(month, year);
 
+    const company = await this.prisma.company.findUnique({
+      where: { id: companyId },
+      select: { settingsJson: true },
+    });
+    const settings = (company?.settingsJson as any) || {};
+    const commissionRules = Array.isArray(settings.commissionRules) ? settings.commissionRules : [
+      { minPct: 0, maxPct: 79.99, rate: 0 },
+      { minPct: 80, maxPct: 99.99, rate: 0.01 },
+      { minPct: 100, maxPct: 119.99, rate: 0.02 },
+      { minPct: 120, maxPct: 999999, rate: 0.03 }
+    ];
+    const sellerGoals = settings.sellerGoals || {};
+
     // -----------------------------------------------------------------------
     // 1. FATURAMENTO
     // CONFIRMED + COMPLETED orders created in the month window
@@ -86,7 +99,7 @@ export class MonthlyClosingService {
         status: { in: ['CONFIRMED', 'COMPLETED'] },
         confirmedAt: { gte: start, lt: end },
       },
-      include: { items: { include: { product: true } } },
+      include: { items: { include: { product: true } }, payments: true },
     });
 
     // CANCELLED orders that were previously CONFIRMED (have confirmedAt set)
@@ -359,6 +372,7 @@ export class MonthlyClosingService {
     const sellerMap = new Map<
       string,
       {
+        salesCount: number;
         grossSales: number;
         discounts: number;
         cancellations: number;
@@ -368,10 +382,12 @@ export class MonthlyClosingService {
     for (const o of validOrders) {
       if (!o.sellerId) continue;
       const existing = sellerMap.get(o.sellerId) ?? {
+        salesCount: 0,
         grossSales: 0,
         discounts: 0,
         cancellations: 0,
       };
+      existing.salesCount += 1;
       existing.grossSales += Number(o.totalAmount);
       existing.discounts += Number(o.discountAmount);
       sellerMap.set(o.sellerId, existing);
@@ -379,6 +395,7 @@ export class MonthlyClosingService {
     for (const o of cancelledOrders) {
       if (!o.sellerId) continue;
       const existing = sellerMap.get(o.sellerId) ?? {
+        salesCount: 0,
         grossSales: 0,
         discounts: 0,
         cancellations: 0,
@@ -398,21 +415,41 @@ export class MonthlyClosingService {
       sellers.map((s) => [s.id, s.firstName + ' ' + s.lastName]),
     );
 
-    const COMMISSION_RATE = 0.03; // 3% - configuravel no futuro
     const commissionData: CommissionEntry[] = [];
     for (const [sellerId, data] of sellerMap.entries()) {
       const netSales = data.grossSales - data.discounts - data.cancellations;
       const commissionBase = netSales;
-      const commissionValue = commissionBase * COMMISSION_RATE;
+      
+      const goal = Number(sellerGoals[sellerId]) || 0;
+      let goalPct = 0;
+      if (goal > 0) {
+        goalPct = (commissionBase / goal) * 100;
+      } else {
+        // If no goal is set, let's treat it as 100% or 0% depending on rule, or just default to 100% to give normal rate
+        goalPct = 100;
+      }
+
+      let matchedRate = 0;
+      for (const rule of commissionRules) {
+        if (goalPct >= rule.minPct && goalPct <= rule.maxPct) {
+          matchedRate = rule.rate;
+          break;
+        }
+      }
+
+      const commissionValue = commissionBase * matchedRate;
       commissionData.push({
         sellerId,
         sellerName: sellerNameMap.get(sellerId) ?? 'Vendedor desconhecido',
+        salesCount: data.salesCount,
         grossSales: data.grossSales,
         discounts: data.discounts,
         cancellations: data.cancellations,
         netSales,
         commissionBase,
-        commissionRate: COMMISSION_RATE,
+        goal,
+        goalPct,
+        commissionRate: matchedRate,
         commissionValue,
       });
     }
@@ -435,10 +472,75 @@ export class MonthlyClosingService {
     }));
     topProducts.sort((a, b) => b.revenue - a.revenue);
 
+    const paymentFormsData: Record<string, number> = {};
+    for (const order of validOrders) {
+      if (order.payments) {
+        for (const p of order.payments) {
+          paymentFormsData[p.method] = (paymentFormsData[p.method] || 0) + Number(p.amount);
+        }
+      }
+    }
+    const paymentForms = Object.keys(paymentFormsData).map(method => ({ method, amount: paymentFormsData[method] })).sort((a,b) => b.amount - a.amount);
+
+    const existingClosing = await this.prisma.monthlyClosing.findUnique({
+      where: { companyId_month_year: { companyId, month, year } },
+    });
+
+    if (existingClosing?.status === 'CLOSED') {
+      const commDataObj = (existingClosing.commissionData as any) || {};
+      const storedSellers = Array.isArray(commDataObj) ? commDataObj : (commDataObj.sellers || []);
+      const cashCounted = commDataObj.cashCounted || 0;
+      const cashDifference = commDataObj.cashDifference || 0;
+      return {
+        id: existingClosing.id,
+        month: existingClosing.month,
+        year: existingClosing.year,
+        companyId: existingClosing.companyId,
+        status: existingClosing.status,
+        closedAt: existingClosing.closedAt,
+        closedBy: existingClosing.closedBy,
+        grossRevenue: Number(existingClosing.grossRevenue),
+        discounts: Number(existingClosing.discounts),
+        cancellations: Number(existingClosing.cancellations),
+        returns: Number(existingClosing.returns),
+        netRevenue: Number(existingClosing.netRevenue),
+        salesCount: existingClosing.salesCount,
+        averageTicket: Number(existingClosing.averageTicket),
+        cogs: Number(existingClosing.cogs),
+        cogsIncomplete: existingClosing.cogsIncomplete,
+        cogsReliability: existingClosing.cogsReliability,
+        grossProfit: Number(existingClosing.grossProfit),
+        expensesPaid: Number(existingClosing.expensesPaid),
+        expensesPending: Number(existingClosing.expensesPending),
+        otherIncomes: Number(existingClosing.otherIncomes),
+        otherExpenses: Number(existingClosing.otherExpenses),
+        netIncome: Number(existingClosing.netIncome),
+        cashInitial: Number(existingClosing.cashInitial),
+        cashInflows: Number(existingClosing.cashInflows),
+        cashOutflows: Number(existingClosing.cashOutflows),
+        cashFinal: Number(existingClosing.cashFinal),
+        salesReceived: Number(existingClosing.salesReceived),
+        salesPending: Number(existingClosing.salesPending),
+        stockInitial: Number(existingClosing.stockInitial),
+        stockPurchases: Number(existingClosing.stockPurchases),
+        stockFinal: Number(existingClosing.stockFinal),
+        productsSold: existingClosing.productsSold,
+        commissionData: storedSellers,
+        topProducts: existingClosing.topProducts,
+        paymentForms: paymentForms,
+        cashCounted: cashCounted,
+        cashDifference: cashDifference,
+      };
+    }
+
     return {
+      id: existingClosing?.id,
       month,
       year,
       companyId,
+      status: existingClosing?.status || 'OPEN',
+      closedAt: existingClosing?.closedAt,
+      closedBy: existingClosing?.closedBy,
       // Faturamento
       grossRevenue,
       discounts,
@@ -475,6 +577,10 @@ export class MonthlyClosingService {
       // Snapshots
       commissionData,
       topProducts,
+      paymentForms,
+      // Cash dynamic
+      cashCounted: 0,
+      cashDifference: 0,
     };
   }
 
@@ -530,6 +636,7 @@ export class MonthlyClosingService {
     month: number,
     year: number,
     userId: string,
+    cashCounted?: number,
   ) {
     const existing = await this.prisma.monthlyClosing.findUnique({
       where: { companyId_month_year: { companyId, month, year } },
@@ -542,6 +649,13 @@ export class MonthlyClosingService {
     }
 
     const data = await this.preview(companyId, month, year);
+    
+    // Store cashCounted safely inside commissionData as a wrapped object so we don't need a migration
+    const commissionDataSnapshot = {
+      sellers: data.commissionData,
+      cashCounted: cashCounted ?? 0,
+      cashDifference: (cashCounted ?? 0) - data.cashFinal,
+    };
 
     const closing = await this.prisma.monthlyClosing.upsert({
       where: { companyId_month_year: { companyId, month, year } },
@@ -578,7 +692,7 @@ export class MonthlyClosingService {
         status: 'CLOSED',
         closedAt: new Date(),
         closedBy: userId,
-        commissionData: data.commissionData as object[],
+        commissionData: commissionDataSnapshot as object,
         topProducts: data.topProducts as object[],
       },
       update: {
@@ -611,7 +725,7 @@ export class MonthlyClosingService {
         status: 'CLOSED',
         closedAt: new Date(),
         closedBy: userId,
-        commissionData: data.commissionData as object[],
+        commissionData: commissionDataSnapshot as object,
         topProducts: data.topProducts as object[],
       },
     });
@@ -629,6 +743,29 @@ export class MonthlyClosingService {
     });
 
     return closing;
+  }
+
+  async updateSettings(companyId: string, payload: any) {
+    const existing = await this.prisma.company.findUnique({
+      where: { id: companyId },
+      select: { settingsJson: true },
+    });
+    const currentSettings = (existing?.settingsJson as any) || {};
+    
+    // Merge commissionRules and sellerGoals
+    if (payload.commissionRules) {
+      currentSettings.commissionRules = payload.commissionRules;
+    }
+    if (payload.sellerGoals) {
+      currentSettings.sellerGoals = payload.sellerGoals;
+    }
+
+    await this.prisma.company.update({
+      where: { id: companyId },
+      data: { settingsJson: currentSettings },
+    });
+
+    return { success: true };
   }
 
   /** Reopen a closed month with mandatory reason and audit */
