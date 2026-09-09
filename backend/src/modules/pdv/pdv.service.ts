@@ -367,14 +367,12 @@ export class PdvService {
 
     // Suprimentos e Saldo Inicial
     const suprimentos = movements.filter(m => m.type === 'SUPPLY');
-    let saldoInicial = 0;
     
-    // Verifica se a primeira movimentação de abertura existe (geralmente a mais antiga do dia)
-    const abertura = suprimentos.find(m => m.description?.includes('Abertura de Caixa') || m.description?.includes('Saldo Inicial'));
-    if (abertura) {
-      saldoInicial = Number(abertura.amount);
-    }
-
+    // A abertura do caixa é SEMPRE o primeiro suprimento registrado cronologicamente nesta sessão
+    const abertura = suprimentos.length > 0 ? suprimentos[0] : null;
+    const saldoInicial = abertura ? Number(abertura.amount) : 0;
+    
+    // O total de suprimentos extras não inclui o saldo inicial
     const totalSuprimentos = suprimentos.reduce((acc, m) => acc + Number(m.amount), 0) - saldoInicial;
 
     return {

@@ -838,7 +838,7 @@ export default function FrenteDeCaixaPage() {
                   ['Operador', user?.name || 'Admin'],
                   [''],
                   ['MÉTRICA', 'VALOR'],
-                  ['Saldo Inicial', drawerSummary.saldoInicial.toFixed(2)],
+                  ['Saldo Inicial', (drawerSummary?.saldoInicial || 0).toFixed(2)],
                   ['Total Vendido', drawerSummary.totalVendas.toFixed(2)],
                   ['Total Descontos', drawerSummary.totalDescontos.toFixed(2)],
                   ['Sangrias', drawerSummary.totalSangrias.toFixed(2)],
@@ -908,7 +908,7 @@ export default function FrenteDeCaixaPage() {
           scrollbarWidth: 'none',
         }}>
           {[
-            { label: 'Saldo Inicial', value: fmt2(drawerSummary.saldoInicial), color: G.muted },
+            { label: 'Saldo Inicial', value: fmt2(drawerSummary?.saldoInicial || 0), color: G.muted },
             { label: 'Entradas', value: fmt2(drawerSummary.totalVendas + drawerSummary.totalSuprimentos), color: G.green },
             { label: 'Sangrias', value: fmt2(drawerSummary.totalSangrias), color: G.amber },
             { label: 'Descontos', value: fmt2(drawerSummary.totalDescontos), color: G.red },
@@ -1113,7 +1113,7 @@ export default function FrenteDeCaixaPage() {
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
                   {[
-                    { label: 'Saldo Inicial', value: fmt2(drawerSummary.saldoInicial), color: G.muted },
+                    { label: 'Saldo Inicial', value: fmt2(drawerSummary?.saldoInicial || 0), color: G.muted },
                     { label: 'Entradas', value: fmt2(drawerSummary.totalVendas + drawerSummary.totalSuprimentos), color: G.green },
                     { label: 'Descontos', value: fmt2(drawerSummary.totalDescontos), color: G.red },
                     { label: 'Sangrias', value: fmt2(drawerSummary.totalSangrias), color: G.amber },
