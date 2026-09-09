@@ -12,7 +12,22 @@ export class FinancialService {
     private readonly prisma: PrismaService
   ) {}
 
+  /** Guard: throws if the period of the given date is CLOSED for this company */
+  private async assertPeriodOpen(companyId: string, date: Date): Promise<void> {
+    const month = date.getMonth() + 1;
+    const year = date.getFullYear();
+    const closing = await this.prisma.monthlyClosing.findUnique({
+      where: { companyId_month_year: { companyId, month, year } },
+    });
+    if (closing && closing.status === 'CLOSED') {
+      throw new BadRequestException(
+        `O periodo ${month}/${year} esta fechado. Reabertura necessaria para alteracoes retroativas.`
+      );
+    }
+  }
+
   async payReceivable(companyId: string, id: string, bankAccountId: string, userId: string) {
+    await this.assertPeriodOpen(companyId, new Date());
     const receivable = await this.financialRepository.findReceivableById(companyId, id);
     if (!receivable) {
       throw new NotFoundException("Receivable not found");
@@ -30,6 +45,7 @@ export class FinancialService {
   }
 
   async payPayable(companyId: string, id: string, bankAccountId: string, userId: string) {
+    await this.assertPeriodOpen(companyId, new Date());
     const payable = await this.financialRepository.findPayableById(companyId, id);
     if (!payable) {
       throw new NotFoundException("Payable not found");

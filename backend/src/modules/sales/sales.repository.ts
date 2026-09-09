@@ -17,6 +17,20 @@ import {
 export class SalesRepository {
   constructor(private prisma: PrismaService) {}
 
+  /** Guard: throws if the period of the given date is CLOSED for this company */
+  private async assertPeriodOpen(companyId: string, date: Date): Promise<void> {
+    const month = date.getMonth() + 1;
+    const year = date.getFullYear();
+    const closing = await this.prisma.monthlyClosing.findUnique({
+      where: { companyId_month_year: { companyId, month, year } },
+    });
+    if (closing && closing.status === "CLOSED") {
+      throw new BadRequestException(
+        `O período ${month}/${year} está fechado. Reabertura necessária para alterações retroativas.`,
+      );
+    }
+  }
+
   async create(companyId: string, dto: CreateSaleOrderDto) {
     return this.prisma.$transaction(async (tx) => {
       // 1. Generate Order Number
@@ -133,8 +147,23 @@ export class SalesRepository {
       if (order.status !== SaleStatus.DRAFT)
         throw new BadRequestException("Order must be DRAFT to confirm");
 
-      // 1. Deduct Inventory for all items
+      // Guard: block confirmation if the period is already CLOSED
+      await this.assertPeriodOpen(companyId, new Date());
+
+      // 1. Deduct Inventory for all items and freeze unitCost
       for (const item of order.items) {
+        // Fetch product to freeze current costPrice as unitCost
+        const product = await tx.product.findUnique({
+          where: { id: item.productId },
+          select: { costPrice: true },
+        });
+
+        // Freeze cost at confirmation moment (prevents CMV drift in future closings)
+        await tx.saleOrderItem.update({
+          where: { id: item.id },
+          data: { unitCost: product?.costPrice ?? null },
+        });
+
         // Fetch warehouse (assume default or find one)
         // For simplicity, find the first active warehouse of the company
         const warehouse = await tx.warehouse.findFirst({
@@ -238,7 +267,11 @@ export class SalesRepository {
         throw new BadRequestException("Order is already cancelled");
       }
 
-      // 1. Mark SaleOrder as CANCELLED
+      // Guard: block cancellation if the sale's confirmed period is CLOSED
+      const saleDate = order.confirmedAt ?? order.createdAt;
+      await this.assertPeriodOpen(companyId, saleDate);
+
+
       const updatedOrder = await tx.saleOrder.update({
         where: { id },
         data: {

@@ -6,7 +6,7 @@ import {
   LayoutDashboard, ShoppingCart, Users, Package, Building2,
   DollarSign, Receipt, FileText, Settings, LogOut, UserCog,
   Truck, Tags, Ruler, GitBranch, Landmark, ClipboardList, Activity, Key, ShieldCheck,
-  MonitorSmartphone
+  MonitorSmartphone, CalendarCheck
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 
@@ -52,6 +52,7 @@ const menuSections = [
       { icon: DollarSign, label: 'Financeiro', href: '/dashboard/financeiro' },
       { icon: DollarSign, label: 'A Receber', href: '/dashboard/financeiro/contas-receber' },
       { icon: DollarSign, label: 'A Pagar', href: '/dashboard/financeiro/contas-pagar' },
+      { icon: CalendarCheck, label: 'Fechamento Mensal', href: '/dashboard/fechamento-mensal' },
       { icon: Receipt, label: 'Fiscal', href: '/dashboard/fiscal' },
       { icon: Receipt, label: 'NF-e', href: '/dashboard/fiscal/nfe' },
       { icon: Receipt, label: 'NFC-e', href: '/dashboard/fiscal/nfce' },

@@ -66,6 +66,7 @@ import { CommunicationsModule } from "./modules/integrations/communications/comm
 import { StorageModule } from "./modules/integrations/storage/storage.module";
 import { SignaturesModule } from "./modules/integrations/signatures/signatures.module";
 import { AiIntegrationModule } from "./modules/integrations/ai/ai.module";
+import { MonthlyClosingModule } from "./modules/monthly-closing/monthly-closing.module";
 
 @Module({
   imports: [
@@ -158,6 +159,7 @@ import { AiIntegrationModule } from "./modules/integrations/ai/ai.module";
     StorageModule,
     SignaturesModule,
     AiIntegrationModule,
+    MonthlyClosingModule,
   ],
 })
 export class AppModule {}

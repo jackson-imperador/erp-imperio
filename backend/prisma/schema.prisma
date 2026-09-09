@@ -470,6 +470,7 @@ model Company {
   opThreatDetections        OpThreatDetection[]
   opSecurityPolicies        OpSecurityPolicy[]
   opReleaseChannel          OpReleaseChannel?
+  monthlyClosings           MonthlyClosing[]
 
   @@index([slug])
   @@index([document])
@@ -959,6 +960,8 @@ model SaleOrderItem {
   discountPct    Decimal  @default(0) @db.Decimal(5, 2)
   discountAmount Decimal  @default(0) @db.Decimal(15, 2)
   totalAmount    Decimal  @db.Decimal(15, 2)
+  // unitCost: frozen at sale confirmation time. NULL = historical sale (cost may be reconstructed or INDETERMINATE)
+  unitCost       Decimal? @db.Decimal(15, 4)
   createdAt      DateTime @default(now())
 
   saleOrder SaleOrder @relation(fields: [saleOrderId], references: [id], onDelete: Cascade)
@@ -4666,3 +4669,74 @@ model PdvDiscountAudit {
   @@index([cashDrawerId])
 }
 
+// ====================================================================
+// FECHAMENTO MENSAL
+// ====================================================================
+
+model MonthlyClosing {
+  id              String    @id @default(uuid())
+  companyId       String
+
+  // Período
+  month           Int       // 1–12
+  year            Int
+
+  // 1. FATURAMENTO (Regime de Competência)
+  grossRevenue    Decimal   @db.Decimal(15, 2)  // Soma totalAmount de CONFIRMED+COMPLETED
+  discounts       Decimal   @db.Decimal(15, 2)  // Soma discountAmount de CONFIRMED+COMPLETED
+  cancellations   Decimal   @db.Decimal(15, 2)  // Soma totalAmount de CANCELLED que tinham sido CONFIRMED
+  returns         Decimal   @default(0) @db.Decimal(15, 2) // Devoluções (reservado para futuro)
+  netRevenue      Decimal   @db.Decimal(15, 2)  // grossRevenue - discounts - cancellations - returns
+  salesCount      Int
+  averageTicket   Decimal   @db.Decimal(15, 2)
+
+  // 2. CMV (Custo das Mercadorias Vendidas)
+  cogs            Decimal   @db.Decimal(15, 2)  // Soma de unitCost * qty dos itens de vendas válidas
+  cogsIncomplete  Int       @default(0)          // Qtd de itens com custo histórico INDETERMINATE
+  cogsReliability String    @default("FULL")     // FULL | PARTIAL
+  grossProfit     Decimal   @db.Decimal(15, 2)  // netRevenue - cogs
+
+  // 3. RESULTADO OPERACIONAL
+  expensesPaid    Decimal   @db.Decimal(15, 2)  // AP sem purchaseOrderId, status PAID no mês
+  expensesPending Decimal   @db.Decimal(15, 2)  // AP sem purchaseOrderId, status PENDING com dueDate no mês
+  otherIncomes    Decimal   @db.Decimal(15, 2)  // FT INCOME COMPLETED não ligado a AR de venda
+  otherExpenses   Decimal   @db.Decimal(15, 2)  // FT EXPENSE COMPLETED não ligado a AP de compra
+  netIncome       Decimal   @db.Decimal(15, 2)  // grossProfit - expensesPaid - expensesPending + otherIncomes - otherExpenses
+
+  // 4. CAIXA (Fluxo Real — completamente separado do faturamento)
+  cashInitial     Decimal   @db.Decimal(15, 2)  // Saldo acumulado até início do mês
+  cashInflows     Decimal   @db.Decimal(15, 2)  // FT INCOME COMPLETED no mês
+  cashOutflows    Decimal   @db.Decimal(15, 2)  // FT EXPENSE COMPLETED no mês
+  cashFinal       Decimal   @db.Decimal(15, 2)  // cashInitial + cashInflows - cashOutflows
+  salesReceived   Decimal   @db.Decimal(15, 2)  // AR PAID no mês (venda que virou dinheiro)
+  salesPending    Decimal   @db.Decimal(15, 2)  // AR PENDING com dueDate no mês (a receber)
+
+  // 5. ESTOQUE
+  stockInitial    Decimal   @db.Decimal(15, 2)  // Valor do estoque no início do mês (stockFinal mês anterior ou snapshot)
+  stockPurchases  Decimal   @db.Decimal(15, 2)  // AP com purchaseOrderId criadas no mês (compras — NÃO confundir com CMV)
+  stockFinal      Decimal   @db.Decimal(15, 2)  // Valor do estoque no momento do fechamento
+  productsSold    Int
+
+  // 6. STATUS E AUDITORIA
+  status          String    @default("OPEN")     // OPEN | CLOSED
+  closedAt        DateTime?
+  closedBy        String?
+  reopenedAt      DateTime?
+  reopenedBy      String?
+  reopenReason    String?
+
+  // 7. SNAPSHOTS CONGELADOS (JSON — imutáveis após CLOSED)
+  // commissionData: [{sellerId, sellerName, grossSales, discounts, cancellations, netSales, commissionBase, commissionValue}]
+  commissionData  Json?
+  // topProducts: [{productId, name, qtySold, revenue, cogs, margin}]
+  topProducts     Json?
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  company         Company   @relation(fields: [companyId], references: [id])
+
+  @@unique([companyId, month, year])
+  @@index([companyId])
+  @@map("monthly_closings")
+}
