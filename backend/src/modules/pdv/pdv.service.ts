@@ -366,10 +366,15 @@ export class PdvService {
     const totalSangrias = sangrias.reduce((acc, m) => acc + Number(m.amount), 0);
 
     // Suprimentos e Saldo Inicial
-    const abertura = movements.find(m => m.type === 'SUPPLY' && m.description === 'Abertura de Caixa (Saldo Inicial)');
-    const saldoInicial = abertura ? Number(abertura.amount) : 0;
-    
     const suprimentos = movements.filter(m => m.type === 'SUPPLY');
+    let saldoInicial = 0;
+    
+    // Verifica se a primeira movimentação de abertura existe (geralmente a mais antiga do dia)
+    const abertura = suprimentos.find(m => m.description?.includes('Abertura de Caixa') || m.description?.includes('Saldo Inicial'));
+    if (abertura) {
+      saldoInicial = Number(abertura.amount);
+    }
+
     const totalSuprimentos = suprimentos.reduce((acc, m) => acc + Number(m.amount), 0) - saldoInicial;
 
     return {
