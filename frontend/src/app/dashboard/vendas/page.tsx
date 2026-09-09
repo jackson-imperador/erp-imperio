@@ -3,8 +3,10 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useSalesOrders } from '@/hooks/useSales';
+import { useSalesDashboard } from '@/hooks/useAnalytics';
 import { GenericDataTable } from '@/components/datatable/GenericDataTable';
 import { StatusBadge, OrderSummaryCards } from '@/components/sales/SalesWidgets';
+import { PieChartWidget } from '@/components/bi/BiWidgets';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { SaleOrder, OrderStatus, SalesFilters } from '@/types/sales';
@@ -28,6 +30,7 @@ export default function VendasPage() {
   const [filters, setFilters] = useState<SalesFilters>({ perPage: 1000 });
   const [showFilters, setShowFilters] = useState(false);
   const { data: orders = [], isLoading } = useSalesOrders(filters);
+  const { data: dashboardData } = useSalesDashboard(filters);
 
   const columns = [
     { key: 'orderNumber', header: 'Nº Pedido' },
@@ -90,6 +93,20 @@ export default function VendasPage() {
 
       {/* Summary Cards */}
       <OrderSummaryCards orders={orders} />
+
+      {/* Advanced Metrics */}
+      {dashboardData && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-white dark:bg-zinc-900 p-6 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
+            <h3 className="text-lg font-medium text-zinc-900 dark:text-white mb-4">Produtos Mais Vendidos</h3>
+            <PieChartWidget data={dashboardData.topProducts || []} />
+          </div>
+          <div className="bg-white dark:bg-zinc-900 p-6 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
+            <h3 className="text-lg font-medium text-zinc-900 dark:text-white mb-4">Melhores Clientes</h3>
+            <PieChartWidget data={dashboardData.topSellers || []} />
+          </div>
+        </div>
+      )}
 
       {/* Filters Panel */}
       {showFilters && (

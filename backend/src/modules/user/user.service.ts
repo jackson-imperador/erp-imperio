@@ -112,4 +112,26 @@ export class UserService {
 
     return membership;
   }
+
+  async updateUser(companyId: string, userId: string, dto: any) {
+    // Basic implementation to update user profile
+    // Only updating first name and last name for simplicity
+    const nameParts = (dto.name || '').trim().split(' ');
+    const firstName = nameParts[0] || undefined;
+    const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : undefined;
+    
+    const updateData: any = {};
+    if (firstName) updateData.firstName = firstName;
+    if (lastName) updateData.lastName = lastName;
+    
+    if (Object.keys(updateData).length > 0) {
+      await this.userRepository.updateProfile(userId, updateData);
+    }
+    return { success: true };
+  }
+
+  async removeUser(companyId: string, userId: string) {
+    await this.userRepository.removeFromCompany(userId, companyId);
+    return { success: true };
+  }
 }

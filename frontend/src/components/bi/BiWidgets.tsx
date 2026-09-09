@@ -2,7 +2,7 @@
 
 import { KPI, ChartDataSeries, AnalyticsPrediction } from '@/types/bi';
 import { TrendingUp, TrendingDown, Minus, BrainCircuit, AlertTriangle, Zap, CheckCircle2 } from 'lucide-react';
-import { AreaChart, Area, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { AreaChart, Area, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend } from 'recharts';
 
 export function formatValue(value: number | string, format: KPI['format']) {
   if (typeof value === 'string') return value;
@@ -89,6 +89,41 @@ export function BarChartWidget({ data, color = '#6366f1', label = 'Valor' }: { d
           />
           <Bar dataKey="value" fill={color} radius={[4, 4, 0, 0]} name={label} />
         </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
+
+export function PieChartWidget({ data, nameKey = 'name', dataKey = 'value' }: { data: any[], nameKey?: string, dataKey?: string }) {
+  if (!data || data.length === 0) return <div className="h-64 flex items-center justify-center text-zinc-500">Sem dados</div>;
+
+  return (
+    <div className="h-72 w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <PieChart>
+          <Pie
+            data={data}
+            cx="50%"
+            cy="50%"
+            innerRadius={60}
+            outerRadius={90}
+            paddingAngle={5}
+            dataKey={dataKey}
+            nameKey={nameKey}
+            stroke="none"
+          >
+            {data.map((entry, index) => (
+              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+            ))}
+          </Pie>
+          <Tooltip 
+            contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', color: '#fff', borderRadius: '8px' }}
+            formatter={(value: any) => `R$ ${Number(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+          />
+          <Legend verticalAlign="bottom" height={36} wrapperStyle={{ fontSize: '12px', color: '#a1a1aa' }} />
+        </PieChart>
       </ResponsiveContainer>
     </div>
   );

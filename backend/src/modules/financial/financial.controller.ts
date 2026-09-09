@@ -1,4 +1,4 @@
-import { Controller, UseGuards, Get, Param } from "@nestjs/common";
+import { Controller, UseGuards, Get, Param, Query } from "@nestjs/common";
 import { ApiTags, ApiBearerAuth, ApiOperation } from "@nestjs/swagger";
 import { FinancialService } from "./financial.service";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
@@ -12,7 +12,10 @@ export class FinancialController {
 
   @Get("dashboard")
   @ApiOperation({ summary: "Get financial dashboard metrics for Cash Flow page" })
-  async getDashboard(@Param("companyId") companyId: string) {
-    return this.financialService.getDashboard(companyId);
+  async getDashboard(
+    @Param("companyId") companyId: string,
+    @Query("period") period?: string
+  ) {
+    return this.financialService.getDashboard(companyId, period);
   }
 }

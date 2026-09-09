@@ -147,6 +147,16 @@ export class ProductService {
     if (unitOfMeasureId) updateData.UnitOfMeasure = { connect: { id: unitOfMeasureId } };
 
     const product = await this.productRepository.updateProduct(companyId, id, updateData);
+    
+    if (initialStock !== undefined) {
+      this.eventEmitter.emit("product.stock.adjusted", {
+        productId: id,
+        companyId,
+        userId,
+        newStock: initialStock,
+      });
+    }
+
     this.emitEvent("ProductUpdated", product.id, companyId, userId, product);
     return product;
   }

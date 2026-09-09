@@ -63,11 +63,21 @@ export class AccountsPayableService {
         },
       });
 
+      let accountId = dto.bankAccountId;
+      if (!accountId) {
+        const account = await tx.financialAccount.findFirst({
+          where: { companyId },
+          orderBy: { isDefault: 'desc' }
+        });
+        if (!account) throw new BadRequestException("Nenhuma conta financeira cadastrada para a empresa.");
+        accountId = account.id;
+      }
+
       // 2. Create Financial Transaction (Cash Outflow)
       await tx.financialTransaction.create({
         data: {
           companyId,
-          accountId: dto.bankAccountId, // can be null if generic cash
+          accountId, // fallback to default account
           accountsPayableId: payable.id,
           costCenterId: payable.costCenterId,
           type: FinancialTransactionType.EXPENSE,

@@ -97,6 +97,7 @@ export class ProductRepository {
         OR: [
           { name: { contains: search, mode: "insensitive" } },
           { sku: { contains: search, mode: "insensitive" } },
+          { barcode: { contains: search, mode: "insensitive" } },
         ],
       }),
     };
@@ -106,12 +107,17 @@ export class ProductRepository {
         where,
         skip,
         take,
-        include: { category: true, Brand: true, UnitOfMeasure: true },
+        include: { category: true, Brand: true, UnitOfMeasure: true, InventoryLevel: true },
       }),
       this.prisma.product.count({ where }),
     ]);
 
-    return { data, total };
+    const mappedData = data.map((product: any) => {
+      const stock = product.InventoryLevel?.reduce((acc: number, level: any) => acc + Number(level.quantity), 0) || 0;
+      return { ...product, initialStock: stock, InventoryLevel: undefined };
+    });
+
+    return { data: mappedData as Product[], total };
   }
 
   async updateProduct(

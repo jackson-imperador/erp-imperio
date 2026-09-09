@@ -80,6 +80,7 @@ export interface DashboardMetrics {
     dailyOutflow: number;
     monthlyInflow: number;
     monthlyOutflow: number;
+    period: string;
   };
 }
 

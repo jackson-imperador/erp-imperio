@@ -45,22 +45,28 @@ export function FinancialSummaryCards({ metrics }: { metrics?: DashboardMetrics 
     <div className="space-y-6">
       {/* V2.6 - Indicadores Executivos (Growth) */}
       {growth && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-card/90 backdrop-blur-md p-5 rounded-xl border border-border/50 shadow-[0_4px_24px_-8px_rgba(0,0,0,0.5)] dark:shadow-[0_4px_24px_-8px_rgba(201,148,26,0.08)] hover:border-primary/50 transition-all duration-300">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Receita (Hoje)</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="bg-card/90 backdrop-blur-md p-5 rounded-xl border border-border/50 shadow-sm transition-all duration-300">
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Receita (Hoje)</p>
             <p className="text-2xl font-black mt-1 text-emerald-400">R$ {growth.dailyInflow.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
           </div>
-          <div className="bg-card/90 backdrop-blur-md p-5 rounded-xl border border-border/50 shadow-[0_4px_24px_-8px_rgba(0,0,0,0.5)] dark:shadow-[0_4px_24px_-8px_rgba(201,148,26,0.08)] hover:border-primary/50 transition-all duration-300">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Despesa (Hoje)</p>
+          <div className="bg-card/90 backdrop-blur-md p-5 rounded-xl border border-border/50 shadow-sm transition-all duration-300">
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Despesa (Hoje)</p>
             <p className="text-2xl font-black mt-1 text-rose-400">R$ {growth.dailyOutflow.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
           </div>
-          <div className="bg-card/90 backdrop-blur-md p-5 rounded-xl border border-border/50 shadow-[0_4px_24px_-8px_rgba(0,0,0,0.5)] dark:shadow-[0_4px_24px_-8px_rgba(201,148,26,0.08)] hover:border-primary/50 transition-all duration-300">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Receita (Mês)</p>
+          <div className="bg-card/90 backdrop-blur-md p-5 rounded-xl border border-border/50 shadow-sm transition-all duration-300">
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Receita ({growth.period === 'all' ? 'Total' : 'Período'})</p>
             <p className="text-2xl font-black mt-1 text-emerald-400">R$ {growth.monthlyInflow.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
           </div>
-          <div className="bg-card/90 backdrop-blur-md p-5 rounded-xl border border-border/50 shadow-[0_4px_24px_-8px_rgba(0,0,0,0.5)] dark:shadow-[0_4px_24px_-8px_rgba(201,148,26,0.08)] hover:border-primary/50 transition-all duration-300">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Despesa (Mês)</p>
+          <div className="bg-card/90 backdrop-blur-md p-5 rounded-xl border border-border/50 shadow-sm transition-all duration-300">
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Despesa ({growth.period === 'all' ? 'Total' : 'Período'})</p>
             <p className="text-2xl font-black mt-1 text-rose-400">R$ {growth.monthlyOutflow.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+          </div>
+          <div className={`bg-card/90 backdrop-blur-md p-5 rounded-xl border \${(growth.monthlyInflow - growth.monthlyOutflow) >= 0 ? 'border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.1)]' : 'border-rose-500/50 shadow-[0_0_15px_rgba(244,63,94,0.1)]'} transition-all duration-300`}>
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Lucro / Prejuízo ({growth.period === 'all' ? 'Total' : 'Período'})</p>
+            <p className={`text-2xl font-black mt-1 \${(growth.monthlyInflow - growth.monthlyOutflow) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+              R$ {(growth.monthlyInflow - growth.monthlyOutflow).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </p>
           </div>
         </div>
       )}

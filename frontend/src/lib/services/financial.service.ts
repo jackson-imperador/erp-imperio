@@ -13,9 +13,11 @@ import {
 const BASE = '/financial';
 
 export const financialService = {
-  async getDashboard(companyId: string): Promise<DashboardMetrics | null> {
+  async getDashboard(companyId: string, period?: string): Promise<DashboardMetrics | null> {
     try {
-      const { data } = await api.get(`/companies/${companyId}${BASE}/dashboard`);
+      const params = new URLSearchParams();
+      if (period) params.append('period', period);
+      const { data } = await api.get(`/companies/${companyId}${BASE}/dashboard`, { params });
       return data.data || data;
     } catch {
       return null;
@@ -114,11 +116,23 @@ export const financialService = {
 
   async payTransaction(companyId: string, id: string, dto: PayTransactionDto): Promise<FinancialTransaction> {
     try {
-      const { data } = await api.patch(`/companies/${companyId}${BASE}/payables/${id}/pay`, dto);
+      const payload = {
+        amountPaid: dto.amount,
+        paymentMethod: dto.paymentMethod,
+        bankAccountId: dto.accountId === 'default' ? undefined : dto.accountId,
+        reference: dto.notes
+      };
+      const { data } = await api.patch(`/companies/${companyId}${BASE}/payables/${id}/pay`, payload);
       return data.data || data;
     } catch (err: any) {
       if (err.response?.status !== 404) throw err;
-      const { data } = await api.patch(`/companies/${companyId}${BASE}/receivables/${id}/pay`, dto);
+      const payload = {
+        amountPaid: dto.amount,
+        paymentMethod: dto.paymentMethod,
+        bankAccountId: dto.accountId === 'default' ? undefined : dto.accountId,
+        reference: dto.notes
+      };
+      const { data } = await api.patch(`/companies/${companyId}${BASE}/receivables/${id}/pay`, payload);
       return data.data || data;
     }
   },

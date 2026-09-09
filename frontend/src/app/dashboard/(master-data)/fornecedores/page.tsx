@@ -21,7 +21,8 @@ export default function FornecedoresPage() {
 
   const columns = [
     { key: 'name', header: 'Nome' },
-    { key: 'document', header: 'CNPJ' }
+    { key: 'document', header: 'CNPJ' },
+    { key: 'phone', header: 'Telefone' }
   ];
 
   const handleOpen = (item?: any) => {
@@ -76,25 +77,53 @@ export default function FornecedoresPage() {
       <GenericDialog 
         open={isModalOpen} 
         onOpenChange={setIsModalOpen} 
-        title={editingItem ? 'Editar Fornecedores' : 'Novo Fornecedores'}
+        title={editingItem ? 'Editar Fornecedor' : 'Novo Fornecedor'}
       >
         <div className="space-y-4">
           
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>Nome / Razão Social</Label>
+              <Input 
+                value={formData['name'] || ''} 
+                onChange={e => setFormData({ ...formData, 'name': e.target.value })} 
+              />
+            </div>
+            
+            <div>
+              <Label>CNPJ</Label>
+              <Input 
+                value={formData['document'] || ''} 
+                onChange={e => setFormData({ ...formData, 'document': e.target.value })} 
+              />
+            </div>
+
+            <div>
+              <Label>Telefone / WhatsApp</Label>
+              <Input 
+                value={formData['phone'] || ''} 
+                onChange={e => setFormData({ ...formData, 'phone': e.target.value })} 
+              />
+            </div>
+
+            <div>
+              <Label>E-mail</Label>
+              <Input 
+                value={formData['email'] || ''} 
+                onChange={e => setFormData({ ...formData, 'email': e.target.value })} 
+              />
+            </div>
+          </div>
+
           <div>
-            <Label>Nome</Label>
+            <Label>Endereço Completo</Label>
             <Input 
-              value={formData['name'] || ''} 
-              onChange={e => setFormData({ ...formData, 'name': e.target.value })} 
+              value={formData['notes'] || ''} 
+              onChange={e => setFormData({ ...formData, 'notes': e.target.value })} 
+              placeholder="Rua, Número, Bairro, Cidade - UF"
             />
           </div>
-          
-          <div>
-            <Label>CNPJ</Label>
-            <Input 
-              value={formData['document'] || ''} 
-              onChange={e => setFormData({ ...formData, 'document': e.target.value })} 
-            />
-          </div>
+
           <div className="flex justify-end space-x-2 pt-4">
             <Button variant="outline" onClick={() => setIsModalOpen(false)}>Cancelar</Button>
             <Button onClick={handleSave} disabled={isMutating}>Salvar</Button>

@@ -8,6 +8,7 @@ import {
   Param,
   Post,
   Query,
+  Delete
 } from "@nestjs/common";
 import { ApiTags, ApiBearerAuth, ApiOperation } from "@nestjs/swagger";
 import { UserService } from "./user.service";
@@ -67,5 +68,24 @@ export class UserController {
     @Body() dto: InviteUserDto,
   ) {
     return this.userService.inviteUser(companyId, req.user.id, dto);
+  }
+
+  @Put("company/:companyId/:id")
+  @ApiOperation({ summary: "Update a user in the company" })
+  async updateCompanyUser(
+    @Param("companyId") companyId: string,
+    @Param("id") id: string,
+    @Body() dto: any,
+  ) {
+    return this.userService.updateUser(companyId, id, dto);
+  }
+
+  @Delete("company/:companyId/:id")
+  @ApiOperation({ summary: "Remove a user from the company" })
+  async removeCompanyUser(
+    @Param("companyId") companyId: string,
+    @Param("id") id: string,
+  ) {
+    return this.userService.removeUser(companyId, id);
   }
 }

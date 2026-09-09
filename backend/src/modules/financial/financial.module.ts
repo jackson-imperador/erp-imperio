@@ -8,10 +8,11 @@ import { FinanceListener } from "./listeners/finance.listener";
 import { FinancialController } from "./financial.controller";
 import { FinancialService } from "./financial.service";
 import { FinancialRepository } from "./financial.repository";
+import { CostCenterController } from "./cost-center.controller";
 
 @Module({
   imports: [PrismaModule],
-  controllers: [AccountsReceivableController, AccountsPayableController, FinancialController],
+  controllers: [AccountsReceivableController, AccountsPayableController, FinancialController, CostCenterController],
   providers: [AccountsReceivableService, AccountsPayableService, FinanceListener, FinancialService, FinancialRepository],
   exports: [AccountsReceivableService, AccountsPayableService, FinancialService],
 })

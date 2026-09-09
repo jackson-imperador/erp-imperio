@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useFinancialDashboard } from '@/hooks/useFinancial';
 import { FinancialSummaryCards, CashFlowChart } from '@/components/financial/FinancialWidgets';
 import { Button } from '@/components/ui/button';
@@ -8,7 +9,33 @@ import { Download, Plus } from 'lucide-react';
 import Link from 'next/link';
 
 export default function FinanceiroDashboardPage() {
-  const { data: metrics, isLoading } = useFinancialDashboard();
+  const [period, setPeriod] = useState(() => {
+    const today = new Date();
+    return today.toISOString().substring(0, 7); // YYYY-MM
+  });
+  
+  const { data: metrics, isLoading } = useFinancialDashboard(period);
+
+  const handlePeriodChange = (val: string) => {
+    if (val === 'last') {
+      const d = new Date();
+      d.setMonth(d.getMonth() - 1);
+      setPeriod(d.toISOString().substring(0, 7));
+    } else if (val === 'current') {
+      const d = new Date();
+      setPeriod(d.toISOString().substring(0, 7));
+    } else {
+      setPeriod('all');
+    }
+  };
+
+  const currentMonthStr = new Date().toISOString().substring(0, 7);
+  let activeTab = 'all';
+  if (period === currentMonthStr) {
+    activeTab = 'current';
+  } else if (period !== 'all') {
+    activeTab = 'last';
+  }
 
   return (
     <div className="space-y-6">
@@ -32,6 +59,33 @@ export default function FinanceiroDashboardPage() {
         </div>
       </div>
 
+      <div className="flex bg-card/60 border border-border/40 rounded-lg p-1 w-fit shadow-sm">
+        <button
+          onClick={() => handlePeriodChange('last')}
+          className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
+            activeTab === 'last' ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Mês Passado
+        </button>
+        <button
+          onClick={() => handlePeriodChange('current')}
+          className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
+            activeTab === 'current' ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Este Mês
+        </button>
+        <button
+          onClick={() => handlePeriodChange('all')}
+          className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
+            activeTab === 'all' ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Todo o Período
+        </button>
+      </div>
+
       {isLoading ? (
         <div className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
@@ -46,7 +100,7 @@ export default function FinanceiroDashboardPage() {
           <div className="bg-card/60 backdrop-blur-sm p-6 rounded-xl border border-border/40 shadow-sm transition-all duration-300 hover:border-primary/50">
             <h2 className="text-lg font-bold text-foreground mb-6 flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-primary/80" />
-              Fluxo de Caixa Projetado
+              Fluxo de Caixa Projetado ({period === 'all' ? 'Histórico Completo' : period})
             </h2>
             <CashFlowChart data={metrics?.cashFlowSeries || []} />
           </div>

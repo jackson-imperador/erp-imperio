@@ -36,7 +36,7 @@ export class AccountsPayableController {
   }
 
   @Patch(":id/pay")
-  @Roles("COMPANY_OWNER", "COMPANY_ADMIN", "MANAGER")
+  @Roles("COMPANY_OWNER", "COMPANY_ADMIN", "MANAGER", "EMPLOYEE")
   @ApiOperation({ summary: "Pay a payable" })
   async pay(
     @Param("companyId") companyId: string,

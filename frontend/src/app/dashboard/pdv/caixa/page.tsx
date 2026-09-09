@@ -520,7 +520,7 @@ export default function FrenteDeCaixaPage() {
   const [discount, setDiscount]                 = useState(0);
   const [acrescimo, setAcrescimo]               = useState(0);
   const [editingQtyId, setEditingQtyId]         = useState<string | null>(null);
-  const [customerName, setCustomerName]         = useState('Consumidor Final');
+  const [customerName, setCustomerName]         = useState('');
   const [customerDoc, setCustomerDoc]           = useState('');
   const [customerPhone, setCustomerPhone]       = useState('');
   const [customerObs, setCustomerObs]           = useState('');
@@ -624,15 +624,35 @@ export default function FrenteDeCaixaPage() {
   /* ── Finalize ───────────────────────────────────────────────────────────── */
   const finalizeSale = async () => {
     if (cart.length === 0) return toast.error('Carrinho vazio.');
+    
+    // Trava de obrigatoriedade de cliente
+    if (!customerName || customerName.trim() === '' || customerName.trim().toLowerCase() === 'consumidor final') {
+      toast.error('🚫 O nome do cliente é obrigatório para concluir a venda.');
+      document.getElementById('customer-name-input')?.focus();
+      return;
+    }
+
     const companyId = useAuthStore.getState().user?.companyId;
     if (!companyId) { toast.error('Sessão inválida. Faça logout e entre novamente.'); return; }
 
     let payments;
+    const paidSoFar = selectedPayments.reduce((acc, p) => acc + p.amount, 0);
+    const troco = Math.max(0, paidSoFar - totalGeral);
+
     if (selectedPayments.length === 1) {
       const p = selectedPayments[0];
       payments = [{ method: (p.method === 'TRANSFER' || p.method === 'BOLETO') ? 'OTHER' : p.method, amount: totalGeral }];
     } else if (selectedPayments.length > 1) {
-      payments = selectedPayments.map(p => ({ method: (p.method === 'TRANSFER' || p.method === 'BOLETO') ? 'OTHER' : p.method, amount: p.amount }));
+      let remainingTroco = troco;
+      payments = selectedPayments.map(p => {
+        let finalAmount = p.amount;
+        if (p.method === 'CASH' && remainingTroco > 0) {
+          const deduction = Math.min(finalAmount, remainingTroco);
+          finalAmount -= deduction;
+          remainingTroco -= deduction;
+        }
+        return { method: (p.method === 'TRANSFER' || p.method === 'BOLETO') ? 'OTHER' : p.method, amount: finalAmount };
+      });
     } else {
       payments = [{ method: 'CASH', amount: totalGeral }];
     }
@@ -667,7 +687,7 @@ export default function FrenteDeCaixaPage() {
       toast.success('Venda concluída com sucesso!');
       setCart([]); setSelectedPayments([]); setReceivedAmount(''); setDiscount(0); setAcrescimo(0);
       setGlobalDiscountState(null);
-      setCustomerName('Consumidor Final'); setCustomerDoc(''); setCustomerPhone(''); setCustomerObs('');
+      setCustomerName(''); setCustomerDoc(''); setCustomerPhone(''); setCustomerObs('');
       setSaleNumber(n => n + 1);
       invalidateAll();
     } catch { toast.error('Erro ao finalizar venda.'); }
@@ -939,9 +959,15 @@ export default function FrenteDeCaixaPage() {
               <span style={S.label({ marginBottom: 0 })}>Cliente</span>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-              <input value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="Consumidor Final"
+              <input 
+                id="customer-name-input"
+                value={customerName} 
+                onChange={e => setCustomerName(e.target.value)} 
+                placeholder="Nome do Cliente (Obrigatório)"
                 style={{ ...S.input(), gridColumn: 'span 2', height: 30 }}
-                onFocus={e => { e.currentTarget.style.borderColor = G.borderG; }} onBlur={e => { e.currentTarget.style.borderColor = G.border; }} />
+                onFocus={e => { e.currentTarget.style.borderColor = G.borderG; }} 
+                onBlur={e => { e.currentTarget.style.borderColor = G.border; }} 
+              />
               <input value={customerDoc} onChange={e => setCustomerDoc(e.target.value)} placeholder="CPF / CNPJ"
                 style={{ ...S.input(), height: 30 }}
                 onFocus={e => { e.currentTarget.style.borderColor = G.borderG; }} onBlur={e => { e.currentTarget.style.borderColor = G.border; }} />
@@ -1639,7 +1665,7 @@ export default function FrenteDeCaixaPage() {
               <p style={S.label()}>Ações</p>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
                 {[
-                  { label: 'Nova Venda', icon: RefreshCw,  color: G.goldL,  bg: G.goldBg,       brd: G.borderG,   fn: () => { setCart([]); setSelectedPayments([]); setDiscount(0); setAcrescimo(0); setSaleNumber(n => n + 1); setGlobalDiscountState(null); setCustomerName('Consumidor Final'); setCustomerDoc(''); setCustomerPhone(''); setCustomerObs(''); }, key: 'F2' },
+                  { label: 'Nova Venda', icon: RefreshCw,  color: G.goldL,  bg: G.goldBg,       brd: G.borderG,   fn: () => { setCart([]); setSelectedPayments([]); setDiscount(0); setAcrescimo(0); setSaleNumber(n => n + 1); setGlobalDiscountState(null); setCustomerName(''); setCustomerDoc(''); setCustomerPhone(''); setCustomerObs(''); }, key: 'F2' },
                   { label: 'Pagamento',  icon: DollarSign, color: G.green,  bg: 'rgba(16,185,129,0.08)', brd: 'rgba(16,185,129,0.28)', fn: () => document.getElementById('received-amount-input')?.focus(), key: 'F4' },
                   { label: 'Desconto',   icon: TrendingDown, color: G.goldL, bg: G.goldBg,      brd: G.borderG,   fn: () => setShowDiscountModal(true), key: 'F6' },
                   { label: 'Sangria',    icon: DollarSign, color: G.amber,  bg: 'rgba(245,158,11,0.08)',brd: 'rgba(245,158,11,0.28)', fn: () => setShowSangriaModal(true), key: 'F7' },

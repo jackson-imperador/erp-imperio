@@ -46,8 +46,11 @@ export class FinancialService {
     return { message: "Expense payment processing initiated via EDA" };
   }
 
-  async getDashboard(companyId: string) {
+  async getDashboard(companyId: string, period?: string) {
     const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+    const targetPeriod = period && period !== 'all' ? period : todayStr.substring(0, 7);
+    const isAll = period === 'all';
 
     const receivables = await this.prisma.accountsReceivable.findMany({ where: { companyId } });
     const payables = await this.prisma.accountsPayable.findMany({ where: { companyId } });
@@ -96,7 +99,7 @@ export class FinancialService {
       else dayData.outflow += amount;
     }
 
-    const cashFlowSeries = Array.from(cashFlowMap.entries()).map(([date, data]) => {
+    let cashFlowSeries = Array.from(cashFlowMap.entries()).map(([date, data]) => {
       return {
         date,
         inflow: data.inflow,
@@ -112,9 +115,33 @@ export class FinancialService {
       point.balance = runningBalance;
     }
 
+    // Filter series for the chart if not 'all'
+    if (!isAll) {
+      cashFlowSeries = cashFlowSeries.filter(point => point.date.startsWith(targetPeriod));
+    }
+
     // V2.5 - Separação financeira de pagamentos recebidos (PDV)
+    const salePaymentsWhere: any = {
+      saleOrder: { companyId, status: { in: ['CONFIRMED', 'COMPLETED'] } }
+    };
+    
+    if (!isAll) {
+      const startDate = new Date(`${targetPeriod}-01T00:00:00.000Z`);
+      let endMonth = startDate.getUTCMonth() + 1;
+      let endYear = startDate.getUTCFullYear();
+      if (endMonth > 11) {
+        endMonth = 0;
+        endYear++;
+      }
+      const endDate = new Date(Date.UTC(endYear, endMonth, 1));
+      salePaymentsWhere.createdAt = {
+        gte: startDate,
+        lt: endDate
+      };
+    }
+
     const salePayments = await this.prisma.salePayment.findMany({
-      where: { saleOrder: { companyId, status: { in: ['CONFIRMED', 'COMPLETED'] } } }
+      where: salePaymentsWhere
     });
 
     const paymentBreakdown: Record<string, number> = {};
@@ -123,16 +150,12 @@ export class FinancialService {
     }
 
     // V2.6 - Tendências reais baseadas no cash flow
-    const todayStr = now.toISOString().split('T')[0];
     const todayData = cashFlowMap.get(todayStr) || { inflow: 0, outflow: 0 };
     
-    // Para simplificar a análise sem complexidade de query:
-    // Soma do mês atual
-    const currentMonthPrefix = todayStr.substring(0, 7);
     let monthlyInflow = 0;
     let monthlyOutflow = 0;
     for (const [date, data] of cashFlowMap.entries()) {
-      if (date.startsWith(currentMonthPrefix)) {
+      if (isAll || date.startsWith(targetPeriod)) {
         monthlyInflow += data.inflow;
         monthlyOutflow += data.outflow;
       }
@@ -142,7 +165,8 @@ export class FinancialService {
       dailyInflow: todayData.inflow,
       dailyOutflow: todayData.outflow,
       monthlyInflow,
-      monthlyOutflow
+      monthlyOutflow,
+      period: targetPeriod
     };
 
     return {

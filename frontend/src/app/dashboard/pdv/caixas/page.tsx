@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import Link from 'next/link';
+import { useAuthStore } from '@/store/authStore';
 
 const G = {
   bg:      '#0a0908',
@@ -26,11 +27,17 @@ const G = {
 };
 
 export default function PdvCaixasPage() {
+  const user = useAuthStore(s => s.user);
+  const isAdmin = user?.role === 'COMPANY_OWNER' || user?.role === 'COMPANY_ADMIN';
   const { data: drawers = [], isLoading } = useCashDrawers();
   const { createDrawer, openDrawer, closeDrawer } = usePdvMutations();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [operator, setOperator] = useState('');
+  const [drawerToOpen, setDrawerToOpen] = useState<any>(null);
+  const [drawerToClose, setDrawerToClose] = useState<any>(null);
+  const [openAmount, setOpenAmount] = useState('');
+  const [openOrigin, setOpenOrigin] = useState('');
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,29 +109,30 @@ export default function PdvCaixasPage() {
           </div>
         </div>
 
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger
-            render={
-              <button
-                style={{
-                  padding: '9px 20px', borderRadius: 10, fontSize: 13, fontWeight: 800,
-                  background: `linear-gradient(135deg, ${G.gold}, ${G.goldL})`,
-                  border: 'none', color: '#0a0908', cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', gap: 8,
-                  boxShadow: `0 4px 20px ${G.goldGlow}`,
-                  transition: 'all 0.2s',
-                }}
-                onMouseOver={e => { e.currentTarget.style.boxShadow = `0 6px 28px rgba(201,148,26,0.55)`; }}
-                onMouseOut={e => { e.currentTarget.style.boxShadow = `0 4px 20px ${G.goldGlow}`; }}
-              >
-                <Plus style={{ width: 15, height: 15 }} />
-                Novo Terminal
-              </button>
-            }
-          />
+        {isAdmin && (
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger
+              render={
+                <button
+                  style={{
+                    padding: '9px 20px', borderRadius: 10, fontSize: 13, fontWeight: 800,
+                    background: `linear-gradient(135deg, ${G.gold}, ${G.goldL})`,
+                    border: 'none', color: '#0a0908', cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    boxShadow: `0 4px 20px ${G.goldGlow}`,
+                    transition: 'all 0.2s',
+                  }}
+                  onMouseOver={e => { e.currentTarget.style.boxShadow = `0 6px 28px rgba(201,148,26,0.55)`; }}
+                  onMouseOut={e => { e.currentTarget.style.boxShadow = `0 4px 20px ${G.goldGlow}`; }}
+                >
+                  <Plus style={{ width: 15, height: 15 }} />
+                  Novo Terminal
+                </button>
+              }
+            />
 
-          <DialogContent
-            style={{
+            <DialogContent
+              style={{
               background: '#0d0b09',
               border: `1px solid ${G.border}`,
               borderRadius: 20,
@@ -202,7 +210,8 @@ export default function PdvCaixasPage() {
               </div>
             </form>
           </DialogContent>
-        </Dialog>
+          </Dialog>
+        )}
       </div>
 
       {/* ── Terminals Grid ── */}
@@ -218,27 +227,8 @@ export default function PdvCaixasPage() {
             <CashDrawerCard
               key={i}
               drawer={d}
-              onOpen={async () => {
-                const val = window.prompt(`Digite o Saldo Inicial para abrir o ${d.name} (R$):`);
-                if (val !== null) {
-                  try {
-                    await openDrawer.mutateAsync({ drawerId: d.id, amount: Number(val.replace(',', '.')) || 0 });
-                    toast.success('Caixa aberto com sucesso!');
-                  } catch {
-                    toast.error('Erro ao abrir caixa.');
-                  }
-                }
-              }}
-              onClose={async () => {
-                if (window.confirm(`Tem certeza que deseja fechar o ${d.name}? O Saldo Atual é de R$ ${d.currentBalance}`)) {
-                  try {
-                    await closeDrawer.mutateAsync({ drawerId: d.id, amount: d.currentBalance });
-                    toast.success('Caixa fechado com sucesso!');
-                  } catch {
-                    toast.error('Erro ao fechar caixa.');
-                  }
-                }
-              }}
+              onOpen={() => setDrawerToOpen(d)}
+              onClose={() => setDrawerToClose(d)}
             />
           ))}
 
@@ -255,6 +245,126 @@ export default function PdvCaixasPage() {
           )}
         </div>
       )}
+
+      {/* ── Open Drawer Modal ── */}
+      <Dialog open={!!drawerToOpen} onOpenChange={(open) => !open && setDrawerToOpen(null)}>
+        <DialogContent style={{ background: '#0d0b09', border: `1px solid ${G.border}`, borderRadius: 20 }}>
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${G.gold}, ${G.goldL}, transparent)`, borderRadius: '20px 20px 0 0' }} />
+          <DialogHeader>
+            <DialogTitle style={{ color: '#fff' }}>Abrir Caixa: {drawerToOpen?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            <div className="p-3 rounded-lg border" style={{ borderColor: G.border, background: 'rgba(255,255,255,0.02)' }}>
+              <p style={{ color: G.muted, fontSize: 12 }}>Último Saldo (Fechamento Anterior):</p>
+              <p style={{ color: '#4ade80', fontSize: 20, fontWeight: 800 }}>R$ {Number(drawerToOpen?.currentBalance || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+            </div>
+            
+            <div className="space-y-2">
+              <label style={{ fontSize: 12, color: G.muted, fontWeight: 600 }}>Valor de Abertura (R$)</label>
+              <input
+                type="number"
+                step="0.01"
+                placeholder="Ex: 150.00"
+                value={openAmount}
+                onChange={e => setOpenAmount(e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label style={{ fontSize: 12, color: G.muted, fontWeight: 600 }}>Origem do Valor (Opcional)</label>
+              <input
+                type="text"
+                placeholder="Ex: Troco da gaveta, Saldo Semanal"
+                value={openOrigin}
+                onChange={e => setOpenOrigin(e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+            
+            <div className="flex justify-end gap-3 pt-4">
+              <button
+                onClick={() => setDrawerToOpen(null)}
+                style={{ padding: '8px 16px', borderRadius: 10, fontSize: 13, color: G.muted, border: `1px solid ${G.border}` }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={async () => {
+                  if (!drawerToOpen) return;
+                  try {
+                    await openDrawer.mutateAsync({ drawerId: drawerToOpen.id, amount: Number(openAmount) || 0 });
+                    toast.success('Caixa aberto com sucesso!');
+                    setDrawerToOpen(null);
+                    setOpenAmount('');
+                    setOpenOrigin('');
+                  } catch {
+                    toast.error('Erro ao abrir caixa.');
+                  }
+                }}
+                disabled={openDrawer.isPending}
+                style={{ padding: '8px 24px', borderRadius: 10, fontSize: 13, fontWeight: 800, background: `linear-gradient(135deg, ${G.gold}, ${G.goldL})`, color: '#000' }}
+              >
+                {openDrawer.isPending ? 'Abrindo...' : 'Confirmar Abertura'}
+              </button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Close Drawer Modal ── */}
+      <Dialog open={!!drawerToClose} onOpenChange={(open) => !open && setDrawerToClose(null)}>
+        <DialogContent style={{ background: '#0d0b09', border: `1px solid ${G.border}`, borderRadius: 20 }}>
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, #ef4444, #f87171, transparent)`, borderRadius: '20px 20px 0 0' }} />
+          <DialogHeader>
+            <DialogTitle style={{ color: '#fff' }}>Fechar Caixa: {drawerToClose?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-4 text-center">
+            <Info className="w-12 h-12 text-rose-500 mx-auto opacity-80" />
+            <p style={{ color: G.text }}>Tem certeza que deseja encerrar as operações deste caixa?</p>
+            <div className="p-4 rounded-xl border mt-4" style={{ borderColor: G.border, background: 'rgba(255,255,255,0.02)' }}>
+              <p style={{ color: G.muted, fontSize: 13 }}>Saldo Final Apurado:</p>
+              <p style={{ color: '#fff', fontSize: 24, fontWeight: 800 }}>R$ {Number(drawerToClose?.currentBalance || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+            </div>
+
+            <div className="flex justify-center gap-3 mt-6">
+               <button
+                 onClick={() => {
+                   toast.success('Relatório PDF gerado com sucesso! (Simulação)');
+                 }}
+                 style={{ padding: '8px 16px', borderRadius: 10, fontSize: 13, color: '#60a5fa', border: `1px solid #1e3a8a`, background: 'rgba(59,130,246,0.1)' }}
+               >
+                 Imprimir PDF
+               </button>
+            </div>
+            
+            <div className="flex justify-end gap-3 pt-6">
+              <button
+                onClick={() => setDrawerToClose(null)}
+                style={{ padding: '8px 16px', borderRadius: 10, fontSize: 13, color: G.muted, border: `1px solid ${G.border}` }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={async () => {
+                  if (!drawerToClose) return;
+                  try {
+                    await closeDrawer.mutateAsync({ drawerId: drawerToClose.id, amount: Number(drawerToClose.currentBalance) });
+                    toast.success('Caixa fechado com sucesso!');
+                    setDrawerToClose(null);
+                  } catch {
+                    toast.error('Erro ao fechar caixa.');
+                  }
+                }}
+                disabled={closeDrawer.isPending}
+                style={{ padding: '8px 24px', borderRadius: 10, fontSize: 13, fontWeight: 800, background: '#ef4444', color: '#fff' }}
+              >
+                {closeDrawer.isPending ? 'Fechando...' : 'Confirmar Fechamento'}
+              </button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* ── Info Footer ── */}
       {!isLoading && (drawers as any[]).length > 0 && (

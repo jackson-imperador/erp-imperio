@@ -80,7 +80,12 @@ export default function UsuriosPage() {
 
       <div className="bg-white dark:bg-zinc-900 p-6 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-800">
         <GenericDataTable 
-          data={items} 
+          data={items.map((item: any) => ({
+            id: item.user?.id || item.id,
+            name: item.user ? `${item.user.firstName} ${item.user.lastName}` : item.name,
+            email: item.user?.email || item.email,
+            original: item
+          }))}
           columns={columns} 
           isLoading={isLoading} 
           onEdit={handleOpen}

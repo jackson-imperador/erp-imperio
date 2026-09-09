@@ -23,6 +23,7 @@ export default function ProdutosPage() {
     { key: 'name', header: 'Nome' },
     { key: 'sku', header: 'SKU' },
     { key: 'barcode', header: 'Cód. Barras' },
+    { key: 'initialStock', header: 'Estoque' },
     { key: 'costPrice', header: 'Pr. Custo', render: (row: any) => `R$ ${Number(row.costPrice || 0).toFixed(2)}` },
     { key: 'salePrice', header: 'Pr. Venda', render: (row: any) => `R$ ${Number(row.salePrice || 0).toFixed(2)}` }
   ];
@@ -124,14 +125,18 @@ export default function ProdutosPage() {
           </div>
 
           <div>
-            <Label>Quantidade Inicial (Estoque)</Label>
+            <Label>Quantidade em Estoque (Atual)</Label>
             <Input 
               type="number"
               value={formData['initialStock'] || 0} 
               onChange={e => setFormData({ ...formData, 'initialStock': parseInt(e.target.value) || 0 })} 
               placeholder="Quantos você tem agora?"
             />
-            <span className="text-xs text-zinc-500">Isso fará uma entrada automática no estoque principal.</span>
+            <span className="text-xs text-zinc-500">
+              {editingItem 
+                ? "Alterar este valor fará um ajuste automático no estoque." 
+                : "Isso fará uma entrada automática no estoque principal."}
+            </span>
           </div>
           
           <div className="grid grid-cols-2 gap-4">

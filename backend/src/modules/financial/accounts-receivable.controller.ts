@@ -36,8 +36,8 @@ export class AccountsReceivableController {
   }
 
   @Patch(":id/pay")
-  @Roles("COMPANY_OWNER", "COMPANY_ADMIN", "MANAGER")
-  @ApiOperation({ summary: "Receive payment for a receivable" })
+  @Roles("COMPANY_OWNER", "COMPANY_ADMIN", "MANAGER", "EMPLOYEE")
+  @ApiOperation({ summary: "Pay a receivable" })
   async pay(
     @Param("companyId") companyId: string,
     @Param("id") id: string,

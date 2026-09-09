@@ -55,107 +55,6 @@ export class InventoryListener {
     }
   }
 
-  @OnEvent("sale.confirmed")
-  async handleSaleConfirmed(event: any) {
-    this.logger.log(`Received sale.confirmed for ${event.saleOrderId}. Deducting inventory...`);
-    const { companyId, saleOrderId } = event;
-
-    const sale = await this.prisma.saleOrder.findUnique({
-      where: { id: saleOrderId },
-      include: { items: true }
-    });
-
-    if (!sale) return;
-
-    let warehouse = await this.prisma.warehouse.findFirst({ where: { companyId, isDefault: true } });
-    if (!warehouse) {
-      warehouse = await this.prisma.warehouse.findFirst({ where: { companyId } });
-    }
-
-    if (!warehouse) {
-      this.logger.warn(`No warehouse found for company ${companyId}. Cannot deduct inventory for sale ${saleOrderId}.`);
-      return;
-    }
-
-    for (const item of sale.items) {
-      // Create stock movement (EXIT)
-      await this.prisma.stockMovement.create({
-        data: {
-          companyId,
-          warehouseId: warehouse.id,
-          productId: item.productId,
-          type: "EXIT",
-          quantity: item.quantity,
-          referenceId: saleOrderId,
-          referenceType: "SALE",
-          performedBy: sale.sellerId || "SYSTEM", // Fixed to use sellerId
-        }
-      });
-
-      // Update or create inventory level
-      const existingLevel = await this.prisma.inventoryLevel.findUnique({
-        where: { warehouseId_productId: { warehouseId: warehouse.id, productId: item.productId } }
-      });
-
-      if (existingLevel) {
-        await this.prisma.inventoryLevel.update({
-          where: { id: existingLevel.id },
-          data: { quantity: Number(existingLevel.quantity) - Number(item.quantity) }
-        });
-      } else {
-        await this.prisma.inventoryLevel.create({
-          data: {
-            companyId,
-            warehouseId: warehouse.id,
-            productId: item.productId,
-            quantity: -Number(item.quantity),
-          }
-        });
-      }
-    }
-  }
-
-  @OnEvent("sale.cancelled")
-  async handleSaleCancelled(event: any) {
-    this.logger.log(`Received sale.cancelled for ${event.saleOrderId}. Reverting inventory...`);
-    // Reverter estoque (ENTRY)
-    const { companyId, saleOrderId } = event;
-    const sale = await this.prisma.saleOrder.findUnique({
-      where: { id: saleOrderId },
-      include: { items: true }
-    });
-
-    if (!sale) return;
-
-    const warehouse = await this.prisma.warehouse.findFirst({ where: { companyId } });
-    if (!warehouse) return;
-
-    for (const item of sale.items) {
-      await this.prisma.stockMovement.create({
-        data: {
-          companyId,
-          warehouseId: warehouse.id,
-          productId: item.productId,
-          type: "ENTRY",
-          quantity: item.quantity,
-          referenceId: saleOrderId,
-          referenceType: "SALE_CANCELLATION",
-          performedBy: "SYSTEM",
-        }
-      });
-
-      const existingLevel = await this.prisma.inventoryLevel.findUnique({
-        where: { warehouseId_productId: { warehouseId: warehouse.id, productId: item.productId } }
-      });
-
-      if (existingLevel) {
-        await this.prisma.inventoryLevel.update({
-          where: { id: existingLevel.id },
-          data: { quantity: Number(existingLevel.quantity) + Number(item.quantity) }
-        });
-      }
-    }
-  }
 
   @OnEvent("purchase.received")
   async handlePurchaseReceived(event: any) {
@@ -232,6 +131,50 @@ export class InventoryListener {
           data: { costPrice: averageCost }
         });
       }
+    }
+  }
+
+  @OnEvent("product.stock.adjusted")
+  async handleProductStockAdjusted(event: any) {
+    const { companyId, productId, userId, newStock } = event;
+    
+    let warehouse = await this.prisma.warehouse.findFirst({ where: { companyId, isDefault: true } });
+    if (!warehouse) {
+      warehouse = await this.prisma.warehouse.findFirst({ where: { companyId } });
+    }
+    if (!warehouse) return;
+
+    const existingLevel = await this.prisma.inventoryLevel.findUnique({
+      where: { warehouseId_productId: { warehouseId: warehouse.id, productId } }
+    });
+
+    const currentQty = existingLevel ? Number(existingLevel.quantity) : 0;
+    const targetQty = Number(newStock);
+    const diff = targetQty - currentQty;
+
+    if (diff !== 0) {
+      if (existingLevel) {
+        await this.prisma.inventoryLevel.update({
+          where: { id: existingLevel.id },
+          data: { quantity: targetQty }
+        });
+      } else {
+        await this.prisma.inventoryLevel.create({
+          data: { companyId, warehouseId: warehouse.id, productId, quantity: targetQty }
+        });
+      }
+
+      await this.prisma.stockMovement.create({
+        data: {
+          companyId,
+          warehouseId: warehouse.id,
+          productId,
+          type: "ADJUSTMENT",
+          quantity: Math.abs(diff),
+          performedBy: userId || "SYSTEM",
+          notes: `Ajuste manual pela tela de produtos (de ${currentQty} para ${targetQty})`
+        }
+      });
     }
   }
 }

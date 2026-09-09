@@ -12,7 +12,7 @@ export function useCrud<T>(endpoint: string, queryKey: string[]) {
     queryFn: async () => {
       if (!companyId) return [];
       try {
-        const hasPrefix = endpoint.startsWith('/companies') || endpoint.startsWith('/company');
+        const hasPrefix = endpoint.startsWith('/companies') || endpoint.startsWith('/company') || endpoint.startsWith('/users');
         const url = hasPrefix ? endpoint : `/companies/${companyId}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
         const { data: resData } = await api.get(url);
         const unwrapped = resData?.data || resData;
@@ -26,7 +26,7 @@ export function useCrud<T>(endpoint: string, queryKey: string[]) {
 
   const createMutation = useMutation({
     mutationFn: async (newData: any) => {
-      const hasPrefix = endpoint.startsWith('/companies') || endpoint.startsWith('/company');
+      const hasPrefix = endpoint.startsWith('/companies') || endpoint.startsWith('/company') || endpoint.startsWith('/users');
       const url = hasPrefix ? endpoint : `/companies/${companyId}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
       const { data } = await api.post(url, newData);
       return data;
@@ -36,7 +36,7 @@ export function useCrud<T>(endpoint: string, queryKey: string[]) {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: any }) => {
-      const hasPrefix = endpoint.startsWith('/companies') || endpoint.startsWith('/company');
+      const hasPrefix = endpoint.startsWith('/companies') || endpoint.startsWith('/company') || endpoint.startsWith('/users');
       const url = hasPrefix ? endpoint : `/companies/${companyId}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
       const baseUrl = url.split('?')[0];
       const { data: res } = await api.put(`${baseUrl}/${id}`, data);
@@ -47,7 +47,7 @@ export function useCrud<T>(endpoint: string, queryKey: string[]) {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const hasPrefix = endpoint.startsWith('/companies') || endpoint.startsWith('/company');
+      const hasPrefix = endpoint.startsWith('/companies') || endpoint.startsWith('/company') || endpoint.startsWith('/users');
       const url = hasPrefix ? endpoint : `/companies/${companyId}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
       const baseUrl = url.split('?')[0];
       const { data } = await api.delete(`${baseUrl}/${id}`);

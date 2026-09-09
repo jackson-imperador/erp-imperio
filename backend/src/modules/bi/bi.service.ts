@@ -17,7 +17,9 @@ export class BiService {
     const end = filters?.endDate ? new Date(filters.endDate) : new Date();
     const start = filters?.startDate ? new Date(filters.startDate) : new Date();
     if (!filters?.startDate) {
-      start.setDate(start.getDate() - 30);
+      // By default, set start to the first day of the current month
+      start.setDate(1);
+      start.setHours(0, 0, 0, 0);
     }
     return { start, end };
   }
@@ -102,11 +104,32 @@ export class BiService {
       .sort((a, b) => b.value - a.value)
       .slice(0, 5);
 
+    const now = new Date();
+    const todayStr = now.toISOString().split("T")[0];
+    const sevenDaysAgo = new Date(now);
+    sevenDaysAgo.setDate(now.getDate() - 7);
+
+    let revToday = 0;
+    let revWeek = 0;
+    
+    for (const t of transactions) {
+      if (t.type === "INCOME") {
+        const tDateStr = t.createdAt.toISOString().split("T")[0];
+        if (tDateStr === todayStr) revToday += Number(t.amount);
+        if (t.createdAt >= sevenDaysAgo) revWeek += Number(t.amount);
+      }
+    }
+
+    const months = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+    const currentMonthName = months[new Date().getMonth()];
+
     return {
       kpis: [
-        { id: "rev", title: "Receita Total", value: totalRevenue, format: "CURRENCY", trend: "STABLE", trendValue: 0, status: "success" },
-        { id: "exp", title: "Despesas", value: totalExpenses, format: "CURRENCY", trend: "STABLE", trendValue: 0, status: "warning" },
-        { id: "sal", title: "Vendas Registradas", value: totalSales, format: "CURRENCY", trend: "STABLE", trendValue: 0, status: "success" },
+        { id: "rev_hoje", title: "Receita (Hoje)", value: revToday, format: "CURRENCY", trend: "STABLE", trendValue: 0, status: "success" },
+        { id: "rev_sem", title: "Receita (7 Dias)", value: revWeek, format: "CURRENCY", trend: "STABLE", trendValue: 0, status: "success" },
+        { id: "rev_mes", title: `Receita (${currentMonthName})`, value: totalRevenue, format: "CURRENCY", trend: "STABLE", trendValue: 0, status: "success" },
+        { id: "exp_mes", title: `Despesas (${currentMonthName})`, value: totalExpenses, format: "CURRENCY", trend: "STABLE", trendValue: 0, status: "warning" },
+        { id: "sal", title: `Vendas (${currentMonthName})`, value: totalSales, format: "CURRENCY", trend: "STABLE", trendValue: 0, status: "default" },
         { id: "cus", title: "Clientes Ativos", value: customers, format: "NUMBER", trend: "STABLE", trendValue: 0, status: "default" },
       ],
       revenueData: {
@@ -182,6 +205,19 @@ export class BiService {
 
     const salesByDay = new Map<string, number>();
     const topSellersMap = new Map<string, number>();
+    const productMap = new Map<string, number>();
+
+    const saleItems = await this.prisma.saleOrderItem.findMany({
+      where: {
+        saleOrder: { companyId, createdAt: { gte: start, lte: end }, status: { in: ['CONFIRMED', 'COMPLETED'] } }
+      },
+      include: { product: true }
+    });
+
+    for (const item of saleItems) {
+      const pName = item.product.name;
+      productMap.set(pName, (productMap.get(pName) || 0) + Number(item.totalAmount));
+    }
 
     for (const s of sales) {
       const day = s.createdAt.toISOString().split("T")[0];
@@ -202,6 +238,11 @@ export class BiService {
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5)
       .map(([name, value]) => ({ name, value }));
+      
+    const topProductsFormatted = Array.from(productMap.entries())
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 5);
     
     return {
       kpis: [
@@ -212,7 +253,8 @@ export class BiService {
         name: "Vendas",
         data: salesFormatted
       },
-      topSellers: topSellersFormatted
+      topSellers: topSellersFormatted,
+      topProducts: topProductsFormatted
     };
   }
 

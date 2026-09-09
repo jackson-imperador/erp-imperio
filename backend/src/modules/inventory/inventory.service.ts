@@ -131,6 +131,7 @@ export class InventoryService {
         productId: l.productId,
         productName: l.product.name,
         sku: l.product.sku || "-",
+        barcode: l.product.barcode || "",
         currentQuantity: qty,
         reservedQuantity: 0,
         availableQuantity: qty,
@@ -155,7 +156,8 @@ export class InventoryService {
       items = items.filter(
         (i) =>
           i.productName.toLowerCase().includes(q) ||
-          i.sku.toLowerCase().includes(q),
+          i.sku.toLowerCase().includes(q) ||
+          i.barcode.toLowerCase().includes(q),
       );
     }
 

@@ -7,11 +7,11 @@ const QK_TRANSACTIONS = 'financial-transactions';
 const QK_DASHBOARD = 'financial-dashboard';
 const QK_STATEMENTS = 'financial-statements';
 
-export function useFinancialDashboard() {
+export function useFinancialDashboard(period?: string) {
   const companyId = useAuthStore((s) => s.user?.companyId || '');
   return useQuery({
-    queryKey: [QK_DASHBOARD, companyId],
-    queryFn: () => financialService.getDashboard(companyId),
+    queryKey: [QK_DASHBOARD, companyId, period],
+    queryFn: () => financialService.getDashboard(companyId, period),
     enabled: !!companyId,
     staleTime: 0,
     refetchOnMount: true,
