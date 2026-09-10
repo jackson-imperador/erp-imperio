@@ -113,21 +113,32 @@ export class MonthlyClosingService {
       },
     });
 
+    // -----------------------------------------------------------------------
+    // FÓRMULA DE FATURAMENTO:
+    //   grossRevenue = SUM(subtotal)            → valor bruto antes do desconto
+    //   discounts    = SUM(discountAmount)       → descontos concedidos
+    //   netRevenue   = grossRevenue - discounts  → valor líquido faturado
+    //
+    // NOTE: validOrders já exclui pedidos CANCELLED/CANCELED.
+    //   Por isso cancellations NÃO é subtraído de netRevenue.
+    //   O campo cancellations é calculado apenas para exibição/relatório informativo.
+    // -----------------------------------------------------------------------
     const grossRevenue = validOrders.reduce(
-      (acc, o) => acc + Number(o.subtotal || (Number(o.totalAmount) + Number(o.discountAmount))),
+      (acc, o) => acc + Number(o.subtotal),
       0,
     );
     const discounts = validOrders.reduce(
       (acc, o) => acc + Number(o.discountAmount),
       0,
     );
+    // Cancelamentos confirmados no mês — para exibição informativa apenas.
+    // NÃO subtraídos de netRevenue: os pedidos CANCELLED não entraram em validOrders,
+    // portanto já estão excluídos de grossRevenue.
     const cancellations = cancelledOrders.reduce(
       (acc, o) => acc + Number(o.totalAmount),
       0,
     );
-    const returns = 0; // reserved for future return-order flow
-    
-    // cancellations already excluded because validOrders only considers CONFIRMED/COMPLETED.
+    const returns = 0; // reservado para fluxo futuro de devolução
     const netRevenue = grossRevenue - discounts - returns;
     const salesCount = validOrders.length;
     const averageTicket = salesCount > 0 ? netRevenue / salesCount : 0;
@@ -370,8 +381,14 @@ export class MonthlyClosingService {
 
     // -----------------------------------------------------------------------
     // 6. COMISSÃO POR VENDEDOR
-    // Base: netSales = grossSales - discounts - cancellations per seller
-    // Cancelled orders that were confirmed reduce base.
+    // REGRA DE NEGÓCIO:
+    //   grossSales  = SUM(subtotal)       → valor bruto antes do desconto
+    //   discounts   = SUM(discountAmount) → descontos concedidos pelo vendedor
+    //   netSales    = grossSales - discounts - cancellations → base de comissão
+    //
+    // ATENÇÃO: NÃO usar totalAmount como grossSales e depois subtrair discounts —
+    //   isso causaria dupla dedução, pois totalAmount = subtotal - discountAmount.
+    //   A regra correta é: grossSales = subtotal, e descontos são deduzidos separadamente.
     // -----------------------------------------------------------------------
     const sellerMap = new Map<
       string,
@@ -392,8 +409,8 @@ export class MonthlyClosingService {
         cancellations: 0,
       };
       existing.salesCount += 1;
-      existing.grossSales += Number(o.totalAmount);
-      existing.discounts += Number(o.discountAmount);
+      existing.grossSales += Number(o.subtotal);       // valor BRUTO antes do desconto
+      existing.discounts += Number(o.discountAmount);  // desconto concedido
       sellerMap.set(o.sellerId, existing);
     }
     for (const o of cancelledOrders) {
@@ -421,6 +438,8 @@ export class MonthlyClosingService {
 
     const commissionData: CommissionEntry[] = [];
     for (const [sellerId, data] of sellerMap.entries()) {
+      // netSales = grossSales - discounts - cancellations
+      // grossSales = subtotal (bruto), discounts já extraídos separadamente → sem dupla dedução
       const netSales = data.grossSales - data.discounts - data.cancellations;
       const commissionBase = netSales;
       
