@@ -75,7 +75,7 @@ export function useMonthlyClosingPreview(month: number, year: number) {
       const { data } = await api.get(
         `/monthly-closing/${year}/${month}/preview`
       );
-      return data;
+      return data.data || data;
     },
     enabled: month >= 1 && month <= 12 && year >= 2000,
     retry: 1, // Don't retry much for preview
@@ -87,7 +87,7 @@ export function useMonthlyClosingHistory() {
     queryKey: ["monthly-closing-history"],
     queryFn: async () => {
       const { data } = await api.get("/monthly-closing");
-      return data;
+      return data.data || data;
     },
   });
 }
@@ -100,7 +100,7 @@ export function useCloseMonth() {
         `/monthly-closing/${year}/${month}/close`,
         { cashCounted }
       );
-      return data;
+      return data.data || data;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["monthly-closing-history"] });
@@ -125,7 +125,7 @@ export function useReopenMonth() {
         `/monthly-closing/${year}/${month}/reopen`,
         { reason }
       );
-      return data;
+      return data.data || data;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["monthly-closing-history"] });
@@ -139,7 +139,7 @@ export function useUpdateMonthlyClosingSettings() {
   return useMutation({
     mutationFn: async (payload: any) => {
       const { data } = await api.put("/monthly-closing/settings", payload);
-      return data;
+      return data.data || data;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["monthly-closing-preview"] });
