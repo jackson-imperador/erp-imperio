@@ -33,7 +33,7 @@ export class BiService {
       }),
       this.prisma.saleOrder.findMany({ 
         where: { companyId, createdAt: { gte: start, lte: end }, status: { in: ['CONFIRMED', 'COMPLETED'] } },
-        include: { customer: { include: { addresses: true } } }
+        select: { id: true, totalAmount: true, confirmedAt: true, createdAt: true, discountAmount: true, customer: { include: { addresses: true } } }
       }),
       this.prisma.customer.count({ where: { companyId } }),
       this.prisma.inventoryLevel.findMany({
@@ -105,17 +105,26 @@ export class BiService {
       .slice(0, 5);
 
     const now = new Date();
-    const todayStr = now.toISOString().split("T")[0];
+    // Use BRT offset (UTC-3) for "today" comparison to avoid timezone shift issues
+    const brtOffset = -3 * 60; // -180 minutes
+    const brtNow = new Date(now.getTime() + brtOffset * 60 * 1000);
+    const todayStr = brtNow.toISOString().split("T")[0]; // YYYY-MM-DD in BRT
     const sevenDaysAgo = new Date(now);
     sevenDaysAgo.setDate(now.getDate() - 7);
 
+    // "Receita Hoje" = vendas válidas confirmadas hoje (BRT)
+    // Using SaleOrder directly — more reliable than FinancialTransaction (PDV sales may not generate FT)
     let revToday = 0;
+    for (const s of sales) {
+      const saleDate = s.confirmedAt ?? s.createdAt;
+      const saleDateBrt = new Date(saleDate.getTime() + brtOffset * 60 * 1000);
+      const saleDateStr = saleDateBrt.toISOString().split("T")[0];
+      if (saleDateStr === todayStr) revToday += Number(s.totalAmount);
+    }
+
     let revWeek = 0;
-    
     for (const t of transactions) {
       if (t.type === "INCOME") {
-        const tDateStr = t.createdAt.toISOString().split("T")[0];
-        if (tDateStr === todayStr) revToday += Number(t.amount);
         if (t.createdAt >= sevenDaysAgo) revWeek += Number(t.amount);
       }
     }

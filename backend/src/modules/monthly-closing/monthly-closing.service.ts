@@ -13,8 +13,10 @@ export class MonthlyClosingService {
 
   /** Boundaries of a given month/year in UTC */
   private monthBounds(month: number, year: number): { start: Date; end: Date } {
-    const start = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
-    const end = new Date(Date.UTC(year, month, 1, 0, 0, 0, 0)); // exclusive
+    // Brazil is UTC-3. We need dates in BRT: month starts at 00:00 BRT = 03:00 UTC
+    const BRT_OFFSET_HOURS = 3; // UTC-3 means add 3h to get UTC equivalent of midnight BRT
+    const start = new Date(Date.UTC(year, month - 1, 1, BRT_OFFSET_HOURS, 0, 0, 0));
+    const end = new Date(Date.UTC(year, month, 1, BRT_OFFSET_HOURS, 0, 0, 0)); // exclusive
     return { start, end };
   }
 
@@ -112,7 +114,7 @@ export class MonthlyClosingService {
     });
 
     const grossRevenue = validOrders.reduce(
-      (acc, o) => acc + Number(o.totalAmount),
+      (acc, o) => acc + Number(o.subtotal || (Number(o.totalAmount) + Number(o.discountAmount))),
       0,
     );
     const discounts = validOrders.reduce(
@@ -124,7 +126,9 @@ export class MonthlyClosingService {
       0,
     );
     const returns = 0; // reserved for future return-order flow
-    const netRevenue = grossRevenue - discounts - cancellations - returns;
+    
+    // cancellations already excluded because validOrders only considers CONFIRMED/COMPLETED.
+    const netRevenue = grossRevenue - discounts - returns;
     const salesCount = validOrders.length;
     const averageTicket = salesCount > 0 ? netRevenue / salesCount : 0;
 

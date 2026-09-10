@@ -1,0 +1,1 @@
+const { PrismaClient } = require('@prisma/client'); const prisma = new PrismaClient(); async function main() { const closing = await prisma.monthlyClosing.findUnique({ where: { companyId_month_year: { companyId: '1a96b12c-389b-4593-85d9-4a0ed5e6d44d', month: 9, year: 2026 } } }); console.log('CLOSING:', closing); } main().then(() => process.exit(0));
