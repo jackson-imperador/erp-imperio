@@ -55,6 +55,21 @@ export function useProductSearch(query: string) {
   });
 }
 
+export function useCustomerSearch(query: string) {
+  const companyId = useAuthStore((s) => s.user?.companyId || '');
+  return useQuery({
+    queryKey: ['pdv-customer-search', companyId, query],
+    queryFn: async () => {
+      if (!query || query.length < 2) return [];
+      const { data } = await api.get(`/company/${companyId}/customers`, {
+        params: { search: query, perPage: 10 },
+      });
+      return data.data?.data || data.data || data;
+    },
+    enabled: !!companyId && query.length > 1,
+  });
+}
+
 export function useCashDrawers() {
   const companyId = useAuthStore((s) => s.user?.companyId || '');
   return useQuery({

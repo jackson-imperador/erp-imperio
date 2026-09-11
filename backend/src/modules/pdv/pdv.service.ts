@@ -199,6 +199,18 @@ export class PdvService {
   }
 
   async processSale(companyId: string, dto: ProcessPdvSaleDto, userId: string) {
+    if (!dto.customerId) {
+      throw new BadRequestException('A venda não pode ser criada sem um cliente (customerId é obrigatório).');
+    }
+
+    const customerExists = await this.prisma.customer.findFirst({
+      where: { id: dto.customerId, companyId, deletedAt: null }
+    });
+
+    if (!customerExists) {
+      throw new NotFoundException('Cliente selecionado não existe ou pertence a outra empresa.');
+    }
+
     // 1. Create Sale Order using SalesService
     let saleNotes = `Venda PDV - Caixa: ${dto.cashierId}`;
     if (dto.customerName) saleNotes += ` | Cliente: ${dto.customerName}`;
@@ -207,6 +219,7 @@ export class PdvService {
     if (dto.customerObs) saleNotes += ` | Obs: ${dto.customerObs}`;
 
     const createSaleDto: CreateSaleOrderDto = {
+      customerId: dto.customerId,
       notes: saleNotes,
       items: dto.items.map(item => ({
         productId: item.productId,

@@ -102,6 +102,10 @@ export class ProcessPdvSaleDto {
   operatorId: string;
 
   @IsString()
+  @IsNotEmpty()
+  customerId: string;
+
+  @IsString()
   @IsOptional()
   customerName?: string;
 

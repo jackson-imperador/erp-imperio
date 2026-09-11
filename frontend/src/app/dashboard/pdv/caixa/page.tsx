@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { PosCartItem } from '@/types/pdv';
 import { NumericKeyboard } from '@/components/pdv/PDVWidgets';
 import { toast } from 'sonner';
-import { useProductSearch, usePdvMutations, useCashDrawers, useDrawerSummary, QK_PDV_DRAWERS } from '@/hooks/usePDV';
+import { useProductSearch, useCustomerSearch, usePdvMutations, useCashDrawers, useDrawerSummary, QK_PDV_DRAWERS } from '@/hooks/usePDV';
 import { useAuthStore } from '@/store/authStore';
 import Link from 'next/link';
 import {
@@ -520,10 +520,13 @@ export default function FrenteDeCaixaPage() {
   const [discount, setDiscount]                 = useState(0);
   const [acrescimo, setAcrescimo]               = useState(0);
   const [editingQtyId, setEditingQtyId]         = useState<string | null>(null);
+  const [customerQuery, setCustomerQuery]       = useState('');
+  const [customerId, setCustomerId]             = useState('');
   const [customerName, setCustomerName]         = useState('');
   const [customerDoc, setCustomerDoc]           = useState('');
   const [customerPhone, setCustomerPhone]       = useState('');
   const [customerObs, setCustomerObs]           = useState('');
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [selectedProduct, setSelectedProduct]   = useState<any>(null);
   const [productQty, setProductQty]             = useState(1);
   const [showNumpad, setShowNumpad]             = useState(false);
@@ -542,6 +545,7 @@ export default function FrenteDeCaixaPage() {
   const searchRef = useRef<HTMLInputElement>(null);
 
   const { data: searchResults }       = useProductSearch(query);
+  const { data: customerResults }     = useCustomerSearch(customerQuery);
   const { data: drawers = [] }        = useCashDrawers();
   const { processSale, createSangria, invalidateAll } = usePdvMutations();
 
@@ -626,9 +630,9 @@ export default function FrenteDeCaixaPage() {
     if (cart.length === 0) return toast.error('Carrinho vazio.');
     
     // Trava de obrigatoriedade de cliente
-    if (!customerName || customerName.trim() === '' || customerName.trim().toLowerCase() === 'consumidor final') {
-      toast.error('🚫 O nome do cliente é obrigatório para concluir a venda.');
-      document.getElementById('customer-name-input')?.focus();
+    if (!customerId) {
+      toast.error('Selecione um cliente para finalizar a venda.');
+      document.getElementById('customer-search-input')?.focus();
       return;
     }
 
@@ -661,7 +665,8 @@ export default function FrenteDeCaixaPage() {
       await processSale.mutateAsync({
         cashierId: drawerId || 'default-drawer',
         operatorId: user?.id || 'operator',
-        customerName: customerName !== 'Consumidor Final' ? customerName : undefined,
+        customerId,
+        customerName: customerName || undefined,
         customerDoc: customerDoc || undefined,
         customerPhone: customerPhone || undefined,
         customerObs: customerObs || undefined,
@@ -688,6 +693,7 @@ export default function FrenteDeCaixaPage() {
       setCart([]); setSelectedPayments([]); setReceivedAmount(''); setDiscount(0); setAcrescimo(0);
       setGlobalDiscountState(null);
       setCustomerName(''); setCustomerDoc(''); setCustomerPhone(''); setCustomerObs('');
+      setCustomerId(''); setCustomerQuery('');
       setSaleNumber(n => n + 1);
       invalidateAll();
     } catch { toast.error('Erro ao finalizar venda.'); }
@@ -958,25 +964,82 @@ export default function FrenteDeCaixaPage() {
               <User style={{ width: 13, height: 13, color: G.gold }} />
               <span style={S.label({ marginBottom: 0 })}>Cliente</span>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-              <input 
-                id="customer-name-input"
-                value={customerName} 
-                onChange={e => setCustomerName(e.target.value)} 
-                placeholder="Nome do Cliente (Obrigatório)"
-                style={{ ...S.input(), gridColumn: 'span 2', height: 30 }}
-                onFocus={e => { e.currentTarget.style.borderColor = G.borderG; }} 
-                onBlur={e => { e.currentTarget.style.borderColor = G.border; }} 
-              />
-              <input value={customerDoc} onChange={e => setCustomerDoc(e.target.value)} placeholder="CPF / CNPJ"
-                style={{ ...S.input(), height: 30 }}
-                onFocus={e => { e.currentTarget.style.borderColor = G.borderG; }} onBlur={e => { e.currentTarget.style.borderColor = G.border; }} />
-              <input value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} placeholder="Telefone"
-                style={{ ...S.input(), height: 30 }}
-                onFocus={e => { e.currentTarget.style.borderColor = G.borderG; }} onBlur={e => { e.currentTarget.style.borderColor = G.border; }} />
-              <input value={customerObs} onChange={e => setCustomerObs(e.target.value)} placeholder="Observações..."
-                style={{ ...S.input(), gridColumn: 'span 2', height: 30 }}
-                onFocus={e => { e.currentTarget.style.borderColor = G.borderG; }} onBlur={e => { e.currentTarget.style.borderColor = G.border; }} />
+            <div style={{ position: 'relative' }}>
+              {!customerId ? (
+                <>
+                  <input 
+                    id="customer-search-input"
+                    value={customerQuery} 
+                    onChange={e => { setCustomerQuery(e.target.value); setShowCustomerDropdown(true); }} 
+                    placeholder="Buscar cliente por nome, CPF ou telefone..."
+                    style={{ ...S.input(), width: '100%', height: 34 }}
+                    onFocus={e => { e.currentTarget.style.borderColor = G.borderG; setShowCustomerDropdown(true); }} 
+                    onBlur={e => { e.currentTarget.style.borderColor = G.border; setTimeout(() => setShowCustomerDropdown(false), 200); }} 
+                  />
+                  {showCustomerDropdown && customerQuery.length > 1 && (
+                    <div style={{ position: 'absolute', top: 38, left: 0, right: 0, background: '#1a1710', border: `1px solid ${G.borderG}`, borderRadius: 8, zIndex: 10, maxHeight: 200, overflowY: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}>
+                      {!customerResults ? (
+                        <div style={{ padding: 10, fontSize: 11, color: G.muted }}>Buscando...</div>
+                      ) : customerResults.length === 0 ? (
+                        <div style={{ padding: 10, fontSize: 11, color: G.muted }}>
+                          Nenhum cliente encontrado. <br/>
+                          <span style={{ color: G.goldL }}>Cadastre no menu Clientes.</span>
+                        </div>
+                      ) : (
+                        customerResults.map((c: any) => (
+                          <div 
+                            key={c.id}
+                            style={{ padding: '8px 12px', borderBottom: `1px solid ${G.border}`, cursor: 'pointer', transition: 'background 0.2s' }}
+                            onMouseOver={e => e.currentTarget.style.background = G.cardHov}
+                            onMouseOut={e => e.currentTarget.style.background = 'transparent'}
+                            onClick={() => {
+                              setCustomerId(c.id);
+                              setCustomerName(c.name);
+                              setCustomerDoc(c.document || '');
+                              setCustomerPhone(c.phone || '');
+                              setCustomerQuery('');
+                              setShowCustomerDropdown(false);
+                            }}
+                          >
+                            <div style={{ fontSize: 12, fontWeight: 700, color: G.text }}>{c.name}</div>
+                            <div style={{ fontSize: 10, color: G.dim }}>
+                              {c.document && `Doc: ${c.document} `}
+                              {c.phone && `Tel: ${c.phone}`}
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: G.card, border: `1px solid ${G.borderG}`, borderRadius: 8 }}>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: G.goldL }}>{customerName}</div>
+                    <div style={{ fontSize: 10, color: G.dim }}>
+                      {customerDoc && `${customerDoc} `}
+                      {customerPhone && `• ${customerPhone}`}
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => { setCustomerId(''); setCustomerName(''); setCustomerDoc(''); setCustomerPhone(''); }}
+                    style={{ width: 24, height: 24, borderRadius: 6, background: 'transparent', border: `1px solid ${G.border}`, color: G.muted, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    title="Remover Cliente"
+                  >
+                    <X style={{ width: 12, height: 12 }} />
+                  </button>
+                </div>
+              )}
+              {customerId && (
+                <input 
+                  value={customerObs} 
+                  onChange={e => setCustomerObs(e.target.value)} 
+                  placeholder="Observações para a venda..."
+                  style={{ ...S.input(), width: '100%', height: 30, marginTop: 6 }}
+                  onFocus={e => { e.currentTarget.style.borderColor = G.borderG; }} 
+                  onBlur={e => { e.currentTarget.style.borderColor = G.border; }} 
+                />
+              )}
             </div>
           </div>
 
