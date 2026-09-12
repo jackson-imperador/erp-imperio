@@ -19,14 +19,22 @@ export class CustomerRepository {
     take: number,
     search?: string,
   ): Promise<{ data: Customer[]; total: number }> {
+    const cleanSearch = search ? search.replace(/\D/g, "") : "";
     const where: Prisma.CustomerWhereInput = {
       companyId,
       deletedAt: null,
       ...(search && {
         OR: [
           { name: { contains: search, mode: "insensitive" } },
-          { document: { contains: search, mode: "insensitive" } },
           { email: { contains: search, mode: "insensitive" } },
+          { document: { contains: search, mode: "insensitive" } },
+          { phone: { contains: search, mode: "insensitive" } },
+          ...(cleanSearch.length > 0
+            ? [
+                { document: { contains: cleanSearch } },
+                { phone: { contains: cleanSearch } },
+              ]
+            : []),
         ],
       }),
     };

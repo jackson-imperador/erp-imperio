@@ -57,17 +57,29 @@ export function useProductSearch(query: string) {
 
 export function useCustomerSearch(query: string) {
   const companyId = useAuthStore((s) => s.user?.companyId || '');
-  return useQuery({
+  const result = useQuery({
     queryKey: ['pdv-customer-search', companyId, query],
     queryFn: async () => {
       if (!query || query.length < 2) return [];
       const { data } = await api.get(`/company/${companyId}/customers`, {
         params: { search: query, perPage: 10 },
       });
-      return data.data?.data || data.data || data;
+      // backend returns { data: Customer[], total: number }
+      // axios wraps in response.data, so here data = { data: [...], total: N }
+      if (Array.isArray(data)) return data;
+      if (data && Array.isArray(data.data)) return data.data;
+      if (data && data.data && Array.isArray(data.data.data)) return data.data.data;
+      return [];
     },
     enabled: !!companyId && query.length > 1,
+    staleTime: 0,
+    placeholderData: undefined,
   });
+  return {
+    data: result.data,
+    isFetching: result.isFetching,
+    isError: result.isError,
+  };
 }
 
 export function useCashDrawers() {

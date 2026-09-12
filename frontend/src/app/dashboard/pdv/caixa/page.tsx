@@ -543,11 +543,17 @@ export default function FrenteDeCaixaPage() {
   const [countedValue, setCountedValue]         = useState(''); // V2.5
 
   const searchRef = useRef<HTMLInputElement>(null);
+  // Debounce customer search to avoid firing on every keystroke
+  const [debouncedCustomerQuery, setDebouncedCustomerQuery] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedCustomerQuery(customerQuery), 350);
+    return () => clearTimeout(t);
+  }, [customerQuery]);
 
-  const { data: searchResults }       = useProductSearch(query);
-  const { data: customerResults }     = useCustomerSearch(customerQuery);
-  const { data: drawers = [] }        = useCashDrawers();
-  const { processSale, createSangria, invalidateAll } = usePdvMutations();
+  const { data: searchResults }                        = useProductSearch(query);
+  const { data: customerResults, isFetching: isSearchingCustomer } = useCustomerSearch(debouncedCustomerQuery);
+  const { data: drawers = [] }                         = useCashDrawers();
+  const { processSale, createSangria, invalidateAll }  = usePdvMutations();
 
   // V2.2 — Pegar o caixa aberto mais recente
   const openDrawer = (drawers as any[]).find((d: any) => d.status === 'OPEN') || null;
@@ -971,20 +977,22 @@ export default function FrenteDeCaixaPage() {
                     id="customer-search-input"
                     value={customerQuery} 
                     onChange={e => { setCustomerQuery(e.target.value); setShowCustomerDropdown(true); }} 
-                    placeholder="Buscar cliente por nome, CPF ou telefone..."
+                    placeholder="Buscar por nome, celular ou CPF..."
                     style={{ ...S.input(), width: '100%', height: 34 }}
                     onFocus={e => { e.currentTarget.style.borderColor = G.borderG; setShowCustomerDropdown(true); }} 
-                    onBlur={e => { e.currentTarget.style.borderColor = G.border; setTimeout(() => setShowCustomerDropdown(false), 200); }} 
+                    onBlur={e => { e.currentTarget.style.borderColor = G.border; setTimeout(() => setShowCustomerDropdown(false), 400); }} 
                   />
                   {showCustomerDropdown && customerQuery.length > 1 && (
                     <div style={{ position: 'absolute', top: 38, left: 0, right: 0, background: '#1a1710', border: `1px solid ${G.borderG}`, borderRadius: 8, zIndex: 10, maxHeight: 200, overflowY: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}>
-                      {!customerResults ? (
-                        <div style={{ padding: 10, fontSize: 11, color: G.muted }}>Buscando...</div>
-                      ) : customerResults.length === 0 ? (
-                        <div style={{ padding: 10, fontSize: 11, color: G.muted }}>
-                          Nenhum cliente encontrado. <br/>
-                          <span style={{ color: G.goldL }}>Cadastre no menu Clientes.</span>
-                        </div>
+                      {isSearchingCustomer ? (
+                        <div style={{ padding: 10, fontSize: 11, color: G.muted }}>🔍 Buscando...</div>
+                      ) : !customerResults || customerResults.length === 0 ? (
+                        debouncedCustomerQuery.length > 1 ? (
+                          <div style={{ padding: 10, fontSize: 11, color: G.muted }}>
+                            Nenhum cliente encontrado para <strong style={{ color: G.goldL }}>&quot;{debouncedCustomerQuery}&quot;</strong>.<br/>
+                            <span style={{ color: G.dim }}>Cadastre no menu Clientes.</span>
+                          </div>
+                        ) : null
                       ) : (
                         customerResults.map((c: any) => (
                           <div 
@@ -992,19 +1000,22 @@ export default function FrenteDeCaixaPage() {
                             style={{ padding: '8px 12px', borderBottom: `1px solid ${G.border}`, cursor: 'pointer', transition: 'background 0.2s' }}
                             onMouseOver={e => e.currentTarget.style.background = G.cardHov}
                             onMouseOut={e => e.currentTarget.style.background = 'transparent'}
+                            onMouseDown={e => e.preventDefault()}
                             onClick={() => {
                               setCustomerId(c.id);
                               setCustomerName(c.name);
                               setCustomerDoc(c.document || '');
                               setCustomerPhone(c.phone || '');
                               setCustomerQuery('');
+                              setDebouncedCustomerQuery('');
                               setShowCustomerDropdown(false);
                             }}
                           >
                             <div style={{ fontSize: 12, fontWeight: 700, color: G.text }}>{c.name}</div>
                             <div style={{ fontSize: 10, color: G.dim }}>
-                              {c.document && `Doc: ${c.document} `}
-                              {c.phone && `Tel: ${c.phone}`}
+                              {c.phone && `📱 ${c.phone}`}
+                              {c.phone && c.document && '  '}
+                              {c.document && `CPF/CNPJ: ${c.document}`}
                             </div>
                           </div>
                         ))
