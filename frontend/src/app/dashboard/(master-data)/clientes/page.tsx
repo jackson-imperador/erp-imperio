@@ -30,6 +30,15 @@ export default function ClientesPage() {
 
   const handleSave = async () => {
     try {
+      if (!formData.name?.trim()) {
+        toast.error('O nome do cliente é obrigatório.');
+        return;
+      }
+      if (!formData.phone?.trim()) {
+        toast.error('O número de celular é obrigatório.');
+        return;
+      }
+
       const payload = {
         ...formData,
         type: formData.type || 'INDIVIDUAL'
@@ -84,7 +93,7 @@ export default function ClientesPage() {
         <div className="space-y-4">
           
           <div>
-            <Label>Nome</Label>
+            <Label>Nome *</Label>
             <Input 
               value={formData['name'] || ''} 
               onChange={e => setFormData({ ...formData, 'name': e.target.value })} 
@@ -92,13 +101,23 @@ export default function ClientesPage() {
           </div>
           
           <div>
-            <Label>Número Celular</Label>
+            <Label>Número Celular *</Label>
             <Input 
               value={formData['phone'] || ''} 
               onChange={e => setFormData({ ...formData, 'phone': e.target.value })} 
               placeholder="(00) 00000-0000"
             />
           </div>
+
+          <div>
+            <Label>CPF / CNPJ (Opcional)</Label>
+            <Input 
+              value={formData['document'] || ''} 
+              onChange={e => setFormData({ ...formData, 'document': e.target.value })} 
+              placeholder="Apenas números ou com formatação"
+            />
+          </div>
+
           <div className="flex justify-end space-x-2 pt-4">
             <Button variant="outline" onClick={() => setIsModalOpen(false)}>Cancelar</Button>
             <Button onClick={handleSave} disabled={isMutating}>Salvar</Button>

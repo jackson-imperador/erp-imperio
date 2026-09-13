@@ -37,8 +37,10 @@ export class CustomerController {
     @Param("companyId") companyId: string,
     @Query() query: PaginationQueryDto & { search?: string },
   ) {
-    const skip = ((query.page || 1) - 1) * (query.perPage || 10);
-    const take = query.perPage || 10;
+    const page = Number(query.page) || 1;
+    const perPage = Number(query.perPage) || 10;
+    const skip = (page - 1) * perPage;
+    const take = perPage;
     return this.customerService.findAll(companyId, skip, take, query.search);
   }
 
